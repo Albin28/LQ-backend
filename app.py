@@ -10,11 +10,30 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
-# 1. Firebase Setup
+# --- SMART CONFIGURATION ---
+def get_firebase_credentials():
+    # Option 1: Look for file on Laptop (Root folder)
+    if os.path.exists("serviceAccountKey.json"):
+        return "serviceAccountKey.json"
+    
+    # Option 2: Look for file on Render (Secret folder)
+    elif os.path.exists("/etc/secrets/serviceAccountKey.json"):
+        return "/etc/secrets/serviceAccountKey.json"
+    
+    else:
+        print("❌ CRITICAL: No Service Account Key found!")
+        return None
+
+# Initialize Firebase
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred)
+    key_path = get_firebase_credentials()
+    if key_path:
+        cred = credentials.Certificate(key_path)
+        firebase_admin.initialize_app(cred)
+    else:
+        # This will show up in Render logs if it fails
+        raise FileNotFoundError("Could not find serviceAccountKey.json in root or /etc/secrets/")
+
 db = firestore.client()
 
 # 2. AI Setup (The New 2025 SDK)
