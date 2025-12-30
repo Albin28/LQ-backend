@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegisQ</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+    <style>
+        body { padding: 10px; background: #f4f4f9; max-width: 600px; margin: auto; }
+        /* Nav Bar */
+        .nav { display: flex; justify-content: space-around; background: white; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
+        .nav div { font-weight: bold; color: #555; cursor: pointer; }
+        .nav div.active { color: #007bff; border-bottom: 2px solid #007bff; }
+        
+        /* Cards */
+        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .title { font-weight: bold; font-size: 1.1rem; }
+        .tag { display: inline-block; background: #eef; color: #007bff; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin-top: 5px;}
+        
+        /* AI Section */
+        .summary-box { background: #f0f8ff; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; font-size: 0.9rem;}
+        .ai-btn { background: #6f42c1; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-top: 10px;}
+    </style>
+</head>
+<body>
+
+    <div class="nav">
+        <div id="tab-mps" class="active" onclick="switchTab('mps')">MPs</div>
+        <div id="tab-bills" onclick="switchTab('bills')">Bills</div>
+    </div>
+
+    <div id="mps-container"></div>
+
+    <div id="bills-container" style="display: none;"></div>
+
+    <script>
+        // 1. Fetch MPs
+        fetch('/api/mps').then(r => r.json()).then(data => {
+            const container = document.getElementById('mps-container');
+            data.forEach(mp => {
+                container.innerHTML += `
+                    <div class="card">
+                        <div class="title">${mp.name}</div>
+                        <small>${mp.party} | ${mp.constituency}</small> <br>
+                        <b>Attendance: ${mp.attendance}%</b>
+                    </div>`;
+            });
+        });
+
+        // 2. Fetch Bills
+        fetch('/api/bills').then(r => r.json()).then(data => {
+            const container = document.getElementById('bills-container');
+            data.forEach((bill, index) => {
+                container.innerHTML += `
+                    <div class="card">
+                        <div class="title">${bill.title}</div>
+                        <span class="tag">${bill.status}</span>
+                        <div style="margin-top:5px; color:#666; font-size:0.8rem;">${bill.date}</div>
+                        
+                        <button class="ai-btn" onclick="summarize(${index}, '${escape(bill.text)}')">✨ AI Summary</button>
+                        <div id="summary-${index}" class="summary-box">Loading AI magic...</div>
+                    </div>`;
+            });
+        });
+
+        // 3. AI Logic
+        function summarize(id, text) {
+            const box = document.getElementById(`summary-${id}`);
+            box.style.display = 'block';
+            
+            fetch('/api/summarize', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text: unescape(text)})
+            })
+            .then(r => r.json())
+            .then(data => {
+                box.innerHTML = "<b>AI Summary:</b><br>" + data.summary.replace(/\n/g, '<br>');
+            });
+        }
+
+        // 4. Tab Logic
+        function switchTab(tab) {
+            document.getElementById('mps-container').style.display = tab === 'mps' ? 'block' : 'none';
+            document.getElementById('bills-container').style.display = tab === 'bills' ? 'block' : 'none';
+            document.getElementById('tab-mps').classList.toggle('active', tab === 'mps');
+            document.getElementById('tab-bills').classList.toggle('active', tab === 'bills');
+        }
+    </script>
+</body>
+</html>
