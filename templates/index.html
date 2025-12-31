@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LegisQ Home</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 20px; }
+        /* The Splash Screen Style */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <img src="{{ url_for('static', filename='logo.png') }}" width="150">
+        <h2>Transparency. Access. Law.</h2>
+        <p>Loading...</p>
+    </div>
+
+    <h1>LegisQ Public Dashboard</h1>
+    <p>Welcome to the public bill viewer.</p>
+    
+    <a href="/login">Go to Admin Login</a>
+
+    <hr>
+    
+    <h3>Current Bills:</h3>
+    <ul>
+        {% for bill in bills %}
+            <li><strong>{{ bill.title }}</strong>: {{ bill.summary }}</li>
+        {% endfor %}
+    </ul>
+
+    <script>
+        setTimeout(function() {
+            document.getElementById('splash').style.display = 'none';
+        }, 2500); // Disappears after 2.5 seconds
+    </script>
+
+</body>
+</html>

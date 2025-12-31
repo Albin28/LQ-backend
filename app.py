@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 import firebase_admin
 from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
@@ -10,7 +10,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# --- SMART CONFIGURATION ---
+# --- 1. NEW: SECURITY KEY (Required for Login/Sessions) ---
+app.secret_key = "legisq_secure_random_key_2025" 
+
+# --- SMART CONFIGURATION (Preserved) ---
 def get_firebase_credentials():
     # Option 1: Look for file on Laptop (Root folder)
     if os.path.exists("serviceAccountKey.json"):
@@ -36,14 +39,55 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# 2. AI Setup (The New 2025 SDK)
+# 2. AI Setup (The New 2025 SDK) (Preserved)
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # --- ROUTES ---
 
+# 1. HOME PAGE (Preserved your mps.html)
 @app.route('/')
 def home():
+    # This loads your existing page with the AI features
     return render_template('mps.html')
+
+# 2. LOGIN PAGE (New)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        # Hardcoded Check (Matches your Android App)
+        if username == "admin" and password == "admin123":
+            session['user'] = "admin" # Save login state
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Invalid Username or Password!")
+            return redirect(url_for('login'))
+            
+    # We need to make sure you created 'templates/login.html' from the previous step!
+    return render_template('login.html')
+
+# 3. ADMIN DASHBOARD (New)
+@app.route('/admin')
+def admin_dashboard():
+    # Security Check: Kick them out if not logged in
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    return """
+    <h1>Welcome Admin!</h1>
+    <p>This is the secure area to Add/Edit Bills.</p>
+    <a href='/'>Go to Public Home</a> | <a href='/logout'>Logout</a>
+    """
+
+# 4. LOGOUT (New)
+@app.route('/logout')
+def logout():
+    session.pop('user', None) # Clear login state
+    return redirect(url_for('home'))
+
+# --- API ENDPOINTS (Preserved) ---
 
 @app.route('/api/mps')
 def get_mps():
@@ -70,7 +114,7 @@ def summarize_bill():
         # Call AI
         print("⏳ Calling Google Gemini...") # DEBUG PRINT
         response = client.models.generate_content(
-            model="gemini-2.5-flash", 
+            model="gemini-2.0-flash", 
             contents=f"Summarize this legislative bill in 3 simple bullet points:\n\n{bill_text}"
         )
         
