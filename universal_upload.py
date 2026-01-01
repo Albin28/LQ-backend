@@ -6,7 +6,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 
 # --- Configuration ---
-DATASET_FOLDER = "dataset"
+DATASET_FOLDER = "static/dataset"
 EXCEL_FILE = "bills_metadata.xlsx" 
 SQLITE_DB_NAME = "legisq_data.db"
 FIREBASE_KEY = "serviceAccountKey.json"
