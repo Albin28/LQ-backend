@@ -8,7 +8,7 @@ from datetime import datetime
 DB_NAME = "legisq_data.db"
 # This points to the new separate folder for data
 DATASET_FOLDER = "dataset"
-EXCEL_FILE = "legislative_data.xlsx"  # Make sure this name matches your file in the dataset folder
+EXCEL_FILE = "bills_metadata.xlsx"  # Make sure this name matches your file in the dataset folder
 
 def init_db():
     """Initializes the database with the correct schema."""
