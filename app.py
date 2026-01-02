@@ -30,7 +30,7 @@ db = firestore.client()
 
 # --- PUBLIC ROUTES ---
 
-# 1. HOME PAGE (The Main Dashboard)
+# 1. HOME PAGE (Bills Dashboard)
 @app.route('/')
 def home():
     # Fetch real bills from Firebase
@@ -40,24 +40,22 @@ def home():
     bills_list = []
     for doc in docs:
         data = doc.to_dict()
-        # Ensure every bill has these fields to prevent crashes
         bill_data = {
             'title': data.get('title', 'Untitled'),
             'status': data.get('status', 'Unknown'),
             'category': data.get('category', 'General'),
             'date_introduced': data.get('date_introduced', 'N/A'),
             'summary': data.get('summary', 'No summary available.'),
-            'file_path': data.get('file_path', '') # Critical for Download Button
+            'file_path': data.get('file_path', '') 
         }
         bills_list.append(bill_data)
 
-    # Render the new UI (index.html)
     return render_template('index.html', bills=bills_list)
 
-# --- NEW ROUTE: MP DASHBOARD ---
+# 2. MP DASHBOARD (Public View)
 @app.route('/mps')
 def mps_dashboard():
-    # Fetch all MP records from Firebase
+    # Fetch all MP records
     mps_ref = db.collection('mps')
     docs = mps_ref.stream()
     
@@ -68,7 +66,7 @@ def mps_dashboard():
         
     return render_template('mps.html', mps=mps_list)
 
-# 2. LOGIN PAGE
+# 3. LOGIN PAGE
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -85,7 +83,7 @@ def login():
             
     return render_template('login.html')
 
-# 3. LOGOUT
+# 4. LOGOUT
 @app.route('/logout')
 def logout():
     session.pop('user', None)
@@ -93,49 +91,70 @@ def logout():
 
 # --- ADMIN ROUTES (SECURE) ---
 
-# 4. ADMIN DASHBOARD (View & Manage)
+# 5. ADMIN DASHBOARD (View & Manage)
 @app.route('/admin')
 def admin_dashboard():
-    # Security Check: Kick user out if not logged in
+    # Security Check
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    # Fetch all bills
-    bills_ref = db.collection('bills')
-    docs = bills_ref.stream()
-    
+    # Fetch Bills
     bills_list = []
-    for doc in docs:
+    for doc in db.collection('bills').stream():
         data = doc.to_dict()
-        data['id'] = doc.id # We need the ID to delete/edit
+        data['id'] = doc.id 
         bills_list.append(data)
-        
-    return render_template('admin.html', bills=bills_list)
 
-# 5. DELETE BILL LOGIC
+    # Fetch MPs (NEW!)
+    mps_list = []
+    for doc in db.collection('mps').stream():
+        data = doc.to_dict()
+        data['id'] = doc.id
+        mps_list.append(data)
+        
+    return render_template('admin.html', bills=bills_list, mps=mps_list)
+
+# 6. DELETE BILL
 @app.route('/delete_bill/<bill_id>', methods=['POST'])
 def delete_bill(bill_id):
-    # Security Check
-    if 'user' not in session:
-        return "Unauthorized", 401
-
+    if 'user' not in session: return "Unauthorized", 401
     try:
         db.collection('bills').document(bill_id).delete()
         return "Deleted", 200
     except Exception as e:
         return str(e), 500
 
-# 6. UPDATE STATUS LOGIC
+# 7. UPDATE BILL STATUS
 @app.route('/update_status/<bill_id>/<new_status>', methods=['POST'])
 def update_status(bill_id, new_status):
-    # Security Check
-    if 'user' not in session:
-        return "Unauthorized", 401
-
+    if 'user' not in session: return "Unauthorized", 401
     try:
-        db.collection('bills').document(bill_id).update({
-            'status': new_status
-        })
+        db.collection('bills').document(bill_id).update({'status': new_status})
+        return "Updated", 200
+    except Exception as e:
+        return str(e), 500
+
+# 8. DELETE MP (NEW!)
+@app.route('/delete_mp/<mp_id>', methods=['POST'])
+def delete_mp(mp_id):
+    if 'user' not in session: return "Unauthorized", 401
+    try:
+        db.collection('mps').document(mp_id).delete()
+        return "Deleted", 200
+    except Exception as e:
+        return str(e), 500
+
+# 9. UPDATE MP ATTENDANCE (NEW!)
+@app.route('/update_mp/<mp_id>', methods=['POST'])
+def update_mp(mp_id):
+    if 'user' not in session: return "Unauthorized", 401
+    
+    data = request.get_json()
+    field = data.get('field') # e.g., 'attendance_pct'
+    value = data.get('value') # e.g., 85.5
+    
+    try:
+        db.collection('mps').document(mp_id).update({field: value})
         return "Updated", 200
     except Exception as e:
         return str(e), 500

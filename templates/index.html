@@ -5,70 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LegisQ Public Dashboard</title>
     <style>
-        /* --- GLOBAL STYLES --- */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f4f7f6; color: #333; }
         
-        /* Splash Screen */
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
-        
-        /* Header */
-        header { background-color: #2c3e50; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .admin-btn { background-color: #e74c3c; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; }
+        /* HEADER */
+        header { background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .admin-btn { background-color: #e74c3c; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; font-size: 0.9rem; }
 
-        /* Container */
+        /* CONTAINER */
         .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
 
-        /* --- NEW: SEARCH BAR STYLE --- */
-        .search-container { margin-bottom: 20px; }
-        #searchInput {
-            width: 100%;
-            padding: 12px;
-            font-size: 1rem;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box; /* Ensures padding doesn't widen the box */
-            transition: border-color 0.3s;
-        }
-        #searchInput:focus { border-color: #3498db; outline: none; }
+        /* CONTROLS (Sort/Filter Bar) */
+        .controls { background: white; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .search-box { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .filter-box { padding: 10px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; background: white; }
 
-        /* Bill Card */
+        /* BILL CARD */
         .bill-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #3498db; }
         .bill-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .bill-title { font-size: 1.2rem; font-weight: bold; color: #2c3e50; margin: 0; }
         
-        /* Status Badge */
         .status-badge { background-color: #f1c40f; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
         .status-passed { background-color: #27ae60; }
         .status-rejected { background-color: #c0392b; }
 
         .bill-meta { font-size: 0.85rem; color: #7f8c8d; margin-bottom: 15px; }
-        .bill-summary { line-height: 1.6; margin-bottom: 15px; }
-
-        /* Download Button */
-        .download-btn { display: inline-block; background-color: #3498db; color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-size: 0.9rem; transition: background 0.3s; }
+        .download-btn { display: inline-block; background-color: #3498db; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-size: 0.9rem; }
         .download-btn:hover { background-color: #2980b9; }
-        .no-file { color: #95a5a6; font-style: italic; }
+        .no-file { color: #95a5a6; font-style: italic; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <h2>LegisQ</h2>
-        <p>Loading Data...</p>
-    </div>
     <header>
         <div style="display: flex; align-items: center;">
-            <h1 style="margin: 0; margin-right: 20px;">LegisQ Dashboard</h1>
+            <h1 style="margin: 0; margin-right: 20px; font-size: 1.5rem;">LegisQ</h1>
             <nav>
-                <a href="/mps" style="color: white; text-decoration: none; font-weight: bold; font-size: 1rem; margin-right: 15px;">View MP Stats</a>
+                <a href="/mps" style="color: white; text-decoration: none; margin-left: 15px; font-weight: bold;">View MPs</a>
             </nav>
         </div>
         <a href="/login" class="admin-btn">Admin Login</a>
     </header>
 
     <div class="container">
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search bills by Title or Category...">
+        <div class="controls">
+            <input type="text" id="searchInput" class="search-box" placeholder="Search bills...">
+            <select id="categoryFilter" class="filter-box">
+                <option value="all">All Categories</option>
+                <option value="Education">Education</option>
+                <option value="Finance">Finance</option>
+                <option value="Defence">Defence</option>
+                <option value="Health">Health</option>
+                <option value="Technology">Technology</option>
+                <option value="Environment">Environment</option>
+            </select>
         </div>
 
         <h3>Recent Legislation</h3>
@@ -76,18 +65,18 @@
         <div id="billsList">
             {% if bills %}
                 {% for bill in bills %}
-                <div class="bill-card">
+                <div class="bill-card" data-category="{{ bill.category|default('General') }}">
                     <div class="bill-header">
                         <p class="bill-title search-target">{{ bill.title }}</p>
-                        <span class="status-badge">{{ bill.status }}</span>
+                        <span class="status-badge status-{{ bill.status|lower }}">{{ bill.status }}</span>
                     </div>
 
                     <div class="bill-meta">
-                        <strong>Category:</strong> <span class="search-category">{{ bill.category }}</span> &nbsp;|&nbsp; 
+                        <strong>Category:</strong> {{ bill.category }} &nbsp;|&nbsp; 
                         <strong>Date:</strong> {{ bill.date_introduced }}
                     </div>
 
-                    <p class="bill-summary">{{ bill.summary }}</p>
+                    <p style="line-height: 1.5;">{{ bill.summary }}</p>
 
                     {% if bill.file_path %}
                         <a href="/static/dataset/{{ bill.file_path }}" class="download-btn" download>Download PDF</a>
@@ -103,30 +92,31 @@
     </div>
 
     <script>
-        // 1. Splash Screen Logic
-        setTimeout(function() {
-            var splash = document.getElementById('splash');
-            splash.style.opacity = '0';
-            setTimeout(function() { splash.style.display = 'none'; }, 500);
-        }, 2000);
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const cards = document.querySelectorAll('.bill-card');
 
-        // 2. NEW: Search Bar Logic
-        document.getElementById('searchInput').addEventListener('keyup', function() {
-            var input = this.value.toLowerCase();
-            var cards = document.getElementsByClassName('bill-card');
+        function filterBills() {
+            const term = searchInput.value.toLowerCase();
+            const category = categoryFilter.value;
 
-            for (var i = 0; i < cards.length; i++) {
-                var title = cards[i].querySelector('.bill-title').innerText.toLowerCase();
-                var category = cards[i].querySelector('.search-category').innerText.toLowerCase();
+            cards.forEach(card => {
+                const title = card.querySelector('.bill-title').innerText.toLowerCase();
+                const cardCategory = card.getAttribute('data-category');
 
-                // Check if Input matches Title OR Category
-                if (title.includes(input) || category.includes(input)) {
-                    cards[i].style.display = ""; // Show
+                const matchesSearch = title.includes(term);
+                const matchesCategory = (category === 'all') || (cardCategory === category);
+
+                if (matchesSearch && matchesCategory) {
+                    card.style.display = "";
                 } else {
-                    cards[i].style.display = "none"; // Hide
+                    card.style.display = "none";
                 }
-            }
-        });
+            });
+        }
+
+        searchInput.addEventListener('keyup', filterBills);
+        categoryFilter.addEventListener('change', filterBills);
     </script>
 
 </body>
