@@ -52,7 +52,10 @@
         <tbody>
             {% for bill in bills %}
             <tr id="row-{{ bill.id }}">
-                <td><strong>{{ bill.title }}</strong><br><small style="color:#777">{{ bill.id }}</small></td>
+                <td>
+            <strong>{{ bill.title }}</strong><br>
+            <small style="color:#555">Introduced: {{ bill.date_introduced }}</small>
+                </td>
                 <td>{{ bill.category }}</td>
                 <td>
                     <span class="badge badge-{{ bill.status|lower }}">{{ bill.status }}</span>
