@@ -28,7 +28,7 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# --- ROUTES ---
+# --- PUBLIC ROUTES ---
 
 # 1. HOME PAGE (The Main Dashboard)
 @app.route('/')
@@ -71,25 +71,62 @@ def login():
             
     return render_template('login.html')
 
-# 3. ADMIN DASHBOARD
-@app.route('/admin')
-def admin_dashboard():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
-    return """
-    <h1>Welcome Admin!</h1>
-    <p>Secure area to Add/Edit Bills (Coming Soon).</p>
-    <a href='/'>Back to Dashboard</a> | <a href='/logout'>Logout</a>
-    """
-
-# 4. LOGOUT
+# 3. LOGOUT
 @app.route('/logout')
 def logout():
     session.pop('user', None)
     return redirect(url_for('home'))
 
-# --- HELPER API (Optional, kept for testing) ---
+# --- ADMIN ROUTES (SECURE) ---
+
+# 4. ADMIN DASHBOARD (View & Manage)
+@app.route('/admin')
+def admin_dashboard():
+    # Security Check: Kick user out if not logged in
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Fetch all bills
+    bills_ref = db.collection('bills')
+    docs = bills_ref.stream()
+    
+    bills_list = []
+    for doc in docs:
+        data = doc.to_dict()
+        data['id'] = doc.id # We need the ID to delete/edit
+        bills_list.append(data)
+        
+    return render_template('admin.html', bills=bills_list)
+
+# 5. DELETE BILL LOGIC
+@app.route('/delete_bill/<bill_id>', methods=['POST'])
+def delete_bill(bill_id):
+    # Security Check
+    if 'user' not in session:
+        return "Unauthorized", 401
+
+    try:
+        db.collection('bills').document(bill_id).delete()
+        return "Deleted", 200
+    except Exception as e:
+        return str(e), 500
+
+# 6. UPDATE STATUS LOGIC
+@app.route('/update_status/<bill_id>/<new_status>', methods=['POST'])
+def update_status(bill_id, new_status):
+    # Security Check
+    if 'user' not in session:
+        return "Unauthorized", 401
+
+    try:
+        db.collection('bills').document(bill_id).update({
+            'status': new_status
+        })
+        return "Updated", 200
+    except Exception as e:
+        return str(e), 500
+
+# --- HELPER API ---
 @app.route('/api/bills')
 def get_bills_json():
     docs = db.collection('bills').stream()
@@ -97,4 +134,3 @@ def get_bills_json():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-    # Force Rebuild: Version 1.1

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LegisQ Public Dashboard</title>
     <style>
-        /* --- STYLING --- */
+        /* --- GLOBAL STYLES --- */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f4f7f6; color: #333; }
         
         /* Splash Screen */
@@ -17,6 +17,19 @@
 
         /* Container */
         .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
+
+        /* --- NEW: SEARCH BAR STYLE --- */
+        .search-container { margin-bottom: 20px; }
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box; /* Ensures padding doesn't widen the box */
+            transition: border-color 0.3s;
+        }
+        #searchInput:focus { border-color: #3498db; outline: none; }
 
         /* Bill Card */
         .bill-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #3498db; }
@@ -31,7 +44,7 @@
         .bill-meta { font-size: 0.85rem; color: #7f8c8d; margin-bottom: 15px; }
         .bill-summary { line-height: 1.6; margin-bottom: 15px; }
 
-        /* DOWNLOAD BUTTON (The Important Part) */
+        /* Download Button */
         .download-btn { display: inline-block; background-color: #3498db; color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-size: 0.9rem; transition: background 0.3s; }
         .download-btn:hover { background-color: #2980b9; }
         .no-file { color: #95a5a6; font-style: italic; }
@@ -50,43 +63,66 @@
     </header>
 
     <div class="container">
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search bills by Title or Category...">
+        </div>
+
         <h3>Recent Legislation</h3>
 
-        {% if bills %}
-            {% for bill in bills %}
-            <div class="bill-card">
-                <div class="bill-header">
-                    <p class="bill-title">{{ bill.title }}</p>
-                    <span class="status-badge">{{ bill.status }}</span>
+        <div id="billsList">
+            {% if bills %}
+                {% for bill in bills %}
+                <div class="bill-card">
+                    <div class="bill-header">
+                        <p class="bill-title search-target">{{ bill.title }}</p>
+                        <span class="status-badge">{{ bill.status }}</span>
+                    </div>
+
+                    <div class="bill-meta">
+                        <strong>Category:</strong> <span class="search-category">{{ bill.category }}</span> &nbsp;|&nbsp; 
+                        <strong>Date:</strong> {{ bill.date_introduced }}
+                    </div>
+
+                    <p class="bill-summary">{{ bill.summary }}</p>
+
+                    {% if bill.file_path %}
+                        <a href="/static/dataset/{{ bill.file_path }}" class="download-btn" download>Download PDF</a>
+                    {% else %}
+                        <span class="no-file">PDF Unavailable</span>
+                    {% endif %}
                 </div>
-
-                <div class="bill-meta">
-                    <strong>Category:</strong> {{ bill.category }} &nbsp;|&nbsp; 
-                    <strong>Date:</strong> {{ bill.date_introduced }}
-                </div>
-
-                <p class="bill-summary">{{ bill.summary }}</p>
-
-                {% if bill.file_path %}
-                    <a href="/static/dataset/{{ bill.file_path }}" class="download-btn" download>
-                        Download PDF
-                    </a>
-                {% else %}
-                    <span class="no-file">PDF Unavailable</span>
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-            <p style="text-align: center; color: #777;">No bills found.</p>
-        {% endif %}
+                {% endfor %}
+            {% else %}
+                <p style="text-align: center; color: #777;">No bills found.</p>
+            {% endif %}
+        </div>
     </div>
 
     <script>
+        // 1. Splash Screen Logic
         setTimeout(function() {
             var splash = document.getElementById('splash');
             splash.style.opacity = '0';
             setTimeout(function() { splash.style.display = 'none'; }, 500);
         }, 2000);
+
+        // 2. NEW: Search Bar Logic
+        document.getElementById('searchInput').addEventListener('keyup', function() {
+            var input = this.value.toLowerCase();
+            var cards = document.getElementsByClassName('bill-card');
+
+            for (var i = 0; i < cards.length; i++) {
+                var title = cards[i].querySelector('.bill-title').innerText.toLowerCase();
+                var category = cards[i].querySelector('.search-category').innerText.toLowerCase();
+
+                // Check if Input matches Title OR Category
+                if (title.includes(input) || category.includes(input)) {
+                    cards[i].style.display = ""; // Show
+                } else {
+                    cards[i].style.display = "none"; // Hide
+                }
+            }
+        });
     </script>
 
 </body>

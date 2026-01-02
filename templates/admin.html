@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegisQ - Admin Control</title>
+    <style>
+        /* Modern Admin Styles */
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-home { background: #34495e; color: white; text-decoration: none; padding: 10px 15px; border-radius: 5px; }
+        
+        /* The Table */
+        .admin-table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
+        .admin-table th { background-color: #2c3e50; color: white; text-align: left; padding: 15px; }
+        .admin-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .admin-table tr:hover { background-color: #f9f9f9; }
+
+        /* Badges */
+        .badge { padding: 5px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; color: white; }
+        .badge-pending { background-color: #f1c40f; }
+        .badge-passed { background-color: #27ae60; }
+        .badge-rejected { background-color: #c0392b; }
+
+        /* Action Buttons */
+        .btn-action { border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px; transition: 0.2s; }
+        .btn-delete { background-color: #ffdad9; color: #c0392b; }
+        .btn-delete:hover { background-color: #c0392b; color: white; }
+        
+        .btn-edit { background-color: #d6eaf8; color: #2980b9; }
+        .btn-edit:hover { background-color: #2980b9; color: white; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Admin Dashboard</h1>
+        <a href="/" class="btn-home">← Back to Website</a>
+    </div>
+
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Bill Title</th>
+                <th>Category</th>
+                <th>Current Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bill in bills %}
+            <tr id="row-{{ bill.id }}">
+                <td><strong>{{ bill.title }}</strong><br><small style="color:#777">{{ bill.id }}</small></td>
+                <td>{{ bill.category }}</td>
+                <td>
+                    <span class="badge badge-{{ bill.status|lower }}">{{ bill.status }}</span>
+                </td>
+                <td>
+                    <button onclick="changeStatus('{{ bill.id }}', '{{ bill.title }}')" class="btn-action btn-edit">
+                        ✎ Status
+                    </button>
+                    
+                    <button onclick="deleteBill('{{ bill.id }}')" class="btn-action btn-delete">
+                        🗑 Delete
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        // 1. DELETE FUNCTION
+        function deleteBill(billId) {
+            if(confirm("Are you sure you want to PERMANENTLY delete this bill?")) {
+                fetch('/delete_bill/' + billId, { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        // Remove the row instantly without refreshing
+                        document.getElementById('row-' + billId).style.display = 'none';
+                    } else {
+                        alert("Error deleting bill.");
+                    }
+                });
+            }
+        }
+
+        // 2. CHANGE STATUS FUNCTION (Quick Toggle)
+        function changeStatus(billId, title) {
+            // Simple prompt to pick status
+            let newStatus = prompt("Enter new status for '" + title + "':\n(Pending, Passed, Rejected)", "Passed");
+            
+            if (newStatus) {
+                // Capitalize first letter (e.g., "passed" -> "Passed")
+                newStatus = newStatus.charAt(0).toUpperCase() + newStatus.slice(1).toLowerCase();
+
+                // Send to Server
+                fetch('/update_status/' + billId + '/' + newStatus, { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        location.reload(); // Refresh to see the new color
+                    } else {
+                        alert("Error updating status.");
+                    }
+                });
+            }
+        }
+    </script>
+
+</body>
+</html>
