@@ -1,205 +1,133 @@
-import sqlite3
-import pandas as pd
-import os
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime
+import pandas as pd
+import os
 
-# --- Configuration ---
-DATASET_FOLDER = "static/dataset"
-EXCEL_FILE = "bills_metadata.xlsx" 
-SQLITE_DB_NAME = "legisq_data.db"
-FIREBASE_KEY = "serviceAccountKey.json"
+# --- 1. SETUP FIREBASE ---
+# We check both local and cloud paths for the key
+if os.path.exists("serviceAccountKey.json"):
+    cred = credentials.Certificate("serviceAccountKey.json")
+elif os.path.exists("/etc/secrets/serviceAccountKey.json"):
+    cred = credentials.Certificate("/etc/secrets/serviceAccountKey.json")
+else:
+    print("❌ Error: serviceAccountKey.json not found!")
+    exit()
 
-def init_sqlite():
-    """
-    Initializes the local SQLite DB.
-    CRITICAL CHANGE: drops old tables to enforce new schema (TEXT IDs).
-    """
-    conn = sqlite3.connect(SQLITE_DB_NAME)
-    c = conn.cursor()
+try:
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("✅ Connected to Firebase")
+except ValueError:
+    print("⚠️ Firebase app already initialized")
+    db = firestore.client()
+
+# --- 2. UPLOAD BILLS FUNCTION (The Original Engine) ---
+def upload_bills():
+    print("\n--- STARTING BILLS UPLOAD ---")
     
-    print("[SQLite] Resetting database tables...")
-    # Wipe old tables so we don't get 'datatype mismatch' errors
-    c.execute('DROP TABLE IF EXISTS bills')
-    c.execute('DROP TABLE IF EXISTS mps')
-    
-    # Create Table 1: bills (bill_id is TEXT)
-    c.execute('''
-        CREATE TABLE bills (
-            bill_id TEXT PRIMARY KEY,
-            title TEXT,
-            category TEXT,
-            status TEXT,
-            date_introduced TEXT,
-            file_path TEXT,
-            summary TEXT
-        )
-    ''')
-    
-    # Create Table 2: mps (mp_id is TEXT)
-    c.execute('''
-        CREATE TABLE mps (
-            mp_id TEXT PRIMARY KEY,
-            name TEXT,
-            constituency TEXT,
-            party TEXT,
-            performance_score TEXT
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-    print(f"[SQLite] Database {SQLITE_DB_NAME} ready with correct schema.")
-
-def init_firebase():
-    """Initializes connection to Firebase."""
-    if not os.path.exists(FIREBASE_KEY):
-        print(f"[Firebase] WARNING: '{FIREBASE_KEY}' missing. Skipping cloud upload.")
-        return None
-    
-    try:
-        if not firebase_admin._apps:
-            cred = credentials.Certificate(FIREBASE_KEY)
-            firebase_admin.initialize_app(cred)
-        return firestore.client()
-    except Exception as e:
-        print(f"[Firebase] Connection Error: {e}")
-        return None
-
-def clean_date(date_val):
-    """Standardizes dates to YYYY-MM-DD."""
-    if pd.isna(date_val) or str(date_val).strip().lower() == "undefined" or str(date_val).strip() == "":
-        return datetime.now().strftime("%Y-%m-%d")
-    try:
-        return pd.to_datetime(date_val).strftime("%Y-%m-%d")
-    except:
-        return datetime.now().strftime("%Y-%m-%d")
-
-def universal_upload():
-    # 1. Initialize DBs (This fixes the schema error)
-    init_sqlite()
-    db_firestore = init_firebase()
-
-    # 2. Check Excel
-    excel_path = os.path.join(DATASET_FOLDER, EXCEL_FILE)
-    if not os.path.exists(excel_path):
-        print(f"ERROR: Could not find {EXCEL_FILE} in '{DATASET_FOLDER}'.")
-        return
-
-    print(f"Reading {EXCEL_FILE}...")
-    try:
-        df = pd.read_excel(excel_path)
-    except Exception as e:
-        print(f"Error reading Excel: {e}")
-        return
-
-    # 3. Decision Logic
-    first_col = df.columns[0].strip()
-    print(f"--> First Column Found: '{first_col}'")
-
-    if first_col == 'Bill_id':
-        mode = 'BILLS'
-        collection_name = 'bills'
-        table_name = 'bills'
-    elif first_col == 'MP_id':
-        mode = 'MPS'
-        collection_name = 'mps'
-        table_name = 'mps'
-    else:
-        print(f"ERROR: First column is '{first_col}'. It must be 'Bill_id' or 'MP_id'.")
-        return
-
-    print(f"--> Mode Detected: {mode}. Syncing to collection '{collection_name}'...")
-
-    # 4. Clear Firebase Collection (Optional - prevents duplicates)
-    if db_firestore:
-        docs = db_firestore.collection(collection_name).stream()
-        for doc in docs:
-            doc.reference.delete()
-
-    # 5. Process Rows
-    conn = sqlite3.connect(SQLITE_DB_NAME)
-    c = conn.cursor()
-    
-    count = 0
-    for index, row in df.iterrows():
+    # Path to Excel (Checks root, then dataset folder)
+    file_path = "bills_metadata.xlsx"
+    if not os.path.exists(file_path):
+        file_path = "dataset/bills_metadata.xlsx"
         
-        # Get ID as String (Crucial fix)
-        row_id = str(row[first_col]).strip()
+    if not os.path.exists(file_path):
+        print("❌ Could not find bills_metadata.xlsx")
+        return
 
-        if mode == 'BILLS':
-            title = row.get('Title', 'Untitled')
-            category = row.get('Category', 'General')
-            status = row.get('Status', 'Pending')
-            date_introduced = clean_date(row.get('Date Introduced', ''))
-            
-            # Filename Logic: "Bill_001" -> "Bill_001.pdf"
-            filename = f"{row_id}.pdf"
-            
-            # Check if file exists
-            full_file_path = os.path.join(DATASET_FOLDER, filename)
-            
-            # Fallback check (in case file is named Bill_Bill_001 or similar)
-            if not os.path.exists(full_file_path) and not row_id.lower().startswith('bill'):
-                 filename = f"Bill_{row_id}.pdf"
-                 full_file_path = os.path.join(DATASET_FOLDER, filename)
+    df = pd.read_excel(file_path)
+    df = df.fillna("") # Fill empty cells to prevent errors
 
-            if os.path.exists(full_file_path):
-                file_path_android = f"dataset/{filename}"
-                file_path_web = filename 
-            else:
-                print(f"   [Warning] PDF not found: {filename}")
-                file_path_android = ""
-                file_path_web = ""
+    collection_ref = db.collection('bills')
 
-            summary = "Summary not available."
+    for index, row in df.iterrows():
+        # Excel Column Mapping
+        bill_data = {
+            'title': row.get('Title', 'Untitled'),
+            'category': str(row.get('Category', 'General')).strip(), 
+            'date_introduced': str(row.get('Date Introduced', '')).strip(),
+            'status': row.get('Status', 'Pending'),
+            'summary': row.get('Summary', 'No summary provided.'),
+            'file_path': "" # Default to empty
+        }
 
-            # SQLite Insert (Safe TEXT ID)
-            c.execute(f'''
-                INSERT INTO bills (bill_id, title, category, status, date_introduced, file_path, summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (row_id, title, category, status, date_introduced, file_path_android, summary))
+        # PDF Link Logic (Strict Matching)
+        # We look in static/dataset first, then dataset
+        pdf_name = f"{row.get('Bill ID', 'Unknown')}.pdf"
+        
+        # Check static/dataset (Web Server standard)
+        if os.path.exists(f"static/dataset/{pdf_name}"):
+             bill_data['file_path'] = pdf_name
+             print(f"   [LINKED] {pdf_name}")
+        # Check dataset (Local standard)
+        elif os.path.exists(f"dataset/{pdf_name}"):
+             bill_data['file_path'] = pdf_name
+             print(f"   [LINKED] {pdf_name}")
+        else:
+             print(f"   [Warning] PDF missing for: {pdf_name}")
 
-            # Firebase Insert
-            if db_firestore:
-                db_firestore.collection(collection_name).add({
-                    "bill_id": row_id,
-                    "title": title,
-                    "category": category,
-                    "status": status,
-                    "date_introduced": date_introduced,
-                    "file_path": file_path_web,
-                    "summary": summary
-                })
+        # Upload to Firebase
+        # We use the Bill ID as the document ID so we don't get duplicates
+        doc_id = str(row.get('Bill ID', f'bill_{index}'))
+        collection_ref.document(doc_id).set(bill_data)
+    
+    print("✅ Bills Upload Complete.")
 
-        elif mode == 'MPS':
-            name = row.get('Name', 'Unknown')
-            party = row.get('Party', 'Ind')
-            constituency = row.get('Constituency', '')
-            score = row.get('Performance Score', '0%')
 
-            c.execute(f'''
-                INSERT INTO mps (mp_id, name, constituency, party, performance_score)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (row_id, name, constituency, party, score))
+# --- 3. UPLOAD MPs FUNCTION (The New Engine) ---
+def upload_mps():
+    print("\n--- STARTING MP DATA UPLOAD ---")
+    
+    # Path to MP Excel (Looking inside dataset folder as you requested)
+    file_path = "dataset/mps_metadata.xlsx"
+    
+    # Safety Check: If not in dataset, check root
+    if not os.path.exists(file_path):
+        file_path = "mps_metadata.xlsx"
 
-            if db_firestore:
-                db_firestore.collection(collection_name).add({
-                    "mp_id": row_id,
-                    "name": name,
-                    "party": party,
-                    "constituency": constituency,
-                    "performance_score": score
-                })
+    if not os.path.exists(file_path):
+        print("❌ Could not find mps_metadata.xlsx. Skipping MPs.")
+        return
 
-        count += 1
-        print(f"Processed: {row.get('Title', row.get('Name', 'Item'))}")
+    df = pd.read_excel(file_path)
+    df = df.fillna(0) # Fill numbers with 0, text with ""
 
-    conn.commit()
-    conn.close()
-    print("------------------------------------------------")
-    print(f"DONE. {count} records uploaded.")
+    mps_ref = db.collection('mps')
 
+    for index, row in df.iterrows():
+        # 1. Calculate Attendance % (Auto-Math)
+        days_attended = float(row.get('Days_Attended', 0))
+        total_days = float(row.get('Total_Days', 1)) # Avoid division by zero
+        attendance_pct = round((days_attended / total_days) * 100, 1)
+
+        # 2. Capitalize Text (Auto-Fix for "gujarat" -> "Gujarat")
+        state = str(row.get('State', 'Unknown')).title()
+        house = str(row.get('House', 'Lok Sabha')).title()
+        
+        mp_data = {
+            'name': row.get('MP_Name', 'Unknown MP'),
+            'state': state,
+            'house': house,
+            'constituency': row.get('Constituency', 'N/A'),
+            'session': row.get('Session_Name', 'General'),
+            'days_attended': int(days_attended),
+            'total_days': int(total_days),
+            'attendance_pct': attendance_pct,
+            'questions': int(row.get('Questions', 0)),
+            'debates': int(row.get('Debates', 0))
+        }
+
+        # 3. Create a Unique ID (Name + Session)
+        # This allows "Amit Shah" to have 2 entries (one for Winter, one for Budget)
+        doc_id = f"{mp_data['name']}_{mp_data['session']}".replace(" ", "_")
+        
+        mps_ref.document(doc_id).set(mp_data)
+        print(f"   [UPLOADED] {mp_data['name']} ({mp_data['session']})")
+
+    print("✅ MP Upload Complete.")
+
+
+# --- 4. MAIN EXECUTION ---
 if __name__ == "__main__":
-    universal_upload()
+    upload_bills() # Run Engine 1
+    upload_mps()   # Run Engine 2
+    print("\n🎉 ALL SYSTEMS UPDATED SUCCESSFULLY.")
