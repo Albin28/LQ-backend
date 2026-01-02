@@ -66,6 +66,23 @@ def mps_dashboard():
         
     return render_template('mps.html', mps=mps_list)
 
+# 3. CURRENT AFFAIRS PAGE (NEW!)
+@app.route('/current_affairs')
+def current_affairs():
+    # Fetch all CA records
+    ca_ref = db.collection('current_affairs')
+    docs = ca_ref.stream()
+    
+    ca_list = []
+    for doc in docs:
+        data = doc.to_dict()
+        ca_list.append(data)
+    
+    # Sort by Date (Newest First) - assumes YYYY-MM-DD format
+    ca_list.sort(key=lambda x: x.get('date', ''), reverse=True)
+        
+    return render_template('current_affairs.html', news=ca_list)
+
 # 3. LOGIN PAGE
 @app.route('/login', methods=['GET', 'POST'])
 def login():
