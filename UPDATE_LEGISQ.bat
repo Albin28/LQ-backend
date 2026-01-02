@@ -1,61 +1,64 @@
 @echo off
-TITLE LegisQ Master Controller
+TITLE LegisQ Debug Mode
 COLOR 0A
 
-:: --- STEP 1: NAVIGATION (Crucial for Shortcut) ---
-:: Forces the computer to go to your project folder
+:: --- STEP 1: NAVIGATION ---
+echo [DEBUG] Navigating to Project Folder...
 E:
 cd "E:\legisq"
+echo Current Directory: %CD%
+PAUSE
 
-echo ==================================================
-echo      LEGISQ "ONE-CLICK" MASTER SYSTEM
-echo ==================================================
+:: --- STEP 2: ACTIVATE VENV ---
 echo.
-
-:: --- STEP 2: ACTIVATE VENV (Crucial for Libraries) ---
-:: Turns on the environment where 'firebase_admin' is installed
+echo [DEBUG] Checking for Virtual Environment...
 if exist "venv\Scripts\activate.bat" (
-    echo [SYSTEM] Activating Virtual Environment...
+    echo [SYSTEM] Activating venv...
     call venv\Scripts\activate.bat
 ) else (
-    echo [WARNING] venv not found. Using global python...
+    echo [WARNING] venv not found. Using global python.
 )
+PAUSE
 
-:: --- STEP 3: UPDATE DATABASE (Data) ---
+:: --- STEP 3: INSTALL LIBRARIES (Just in case) ---
 echo.
-echo [STEP 1/3] Uploading Excel Data to Firebase...
+echo [DEBUG] Ensuring Libraries are Installed...
+:: We try to install them silently. If they exist, this skips instantly.
+pip install firebase-admin pandas openpyxl
+PAUSE
+
+:: --- STEP 4: UPDATE DATABASE ---
+echo.
+echo [STEP 1/3] Uploading Excel Data...
 python universal_upload.py
 IF %ERRORLEVEL% NEQ 0 (
-    echo ❌ Python Error! Check your Excel files or install libraries.
-    pause
-    exit /b
+    COLOR 0C
+    echo.
+    echo ❌ CRITICAL ERROR: Python script failed!
+    echo Read the error message above (Traceback).
+    PAUSE
+    goto :EOF
 )
 echo ✅ Database Synced.
+PAUSE
 
-:: --- STEP 4: FORCE PDFs (The New Fix) ---
+:: --- STEP 5: FORCE PDFs ---
 echo.
-echo [STEP 2/3] Locking New PDF Files...
+echo [STEP 2/3] Locking PDFs...
 git add .
-:: The magic command to force-upload ignored PDFs
 git add -f static/dataset/*.pdf
 echo ✅ PDFs Locked.
+PAUSE
 
-:: --- STEP 5: DEPLOY TO RENDER (Website) ---
+:: --- STEP 6: DEPLOY ---
 echo.
-echo [STEP 3/3] Pushing to Render Server...
-git commit -m "Auto-Update: New Data and Forced PDFs"
+echo [STEP 3/3] Pushing to Render...
+git commit -m "Auto-Update via Debug Script"
 git push origin main
-IF %ERRORLEVEL% NEQ 0 (
-    echo ⚠️  Git Warning (Nothing new to push).
-) ELSE (
-    echo ✅ Deployment Triggered!
-)
+echo ✅ Done.
 
 echo.
 echo ==================================================
-echo      SUCCESS! 
-echo      1. Data is LIVE on App immediately.
-echo      2. PDFs/Website will refresh in ~2-3 mins.
+echo      SCRIPT FINISHED CORRECTLY
 echo ==================================================
-echo.
-pause
+PAUSE
