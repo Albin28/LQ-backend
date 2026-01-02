@@ -35,7 +35,24 @@
         /* ATTENDANCE COLORS */
         .high-att { color: #27ae60; } 
         .med-att { color: #f1c40f; }  
-        .low-att { color: #c0392b; }  
+        .low-att { color: #c0392b; } 
+        /* MOBILE OPTIMIZATIONS */
+        @media screen and (max-width: 768px) {
+            /* 1. Make the main container use full width */
+            body { padding: 10px; }
+            .container { width: 100%; padding: 0; }
+
+            /* 2. Fix the Table (Make it scroll sideways) */
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+
+            /* 3. Adjust Headers and Buttons */
+            h1 { font-size: 1.5rem; text-align: center; }
+            .header { flex-direction: column; text-align: center; }
+            .search-box { width: 100%; margin-bottom: 10px; }
+            
+            /* 4. Fix MP "Baseball Cards" (Stack them) */
+            .mp-grid { grid-template-columns: 1fr; } /* One card per row */
+        } 
     </style>
 </head>
 <body>

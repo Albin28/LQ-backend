@@ -32,6 +32,25 @@
         .download-btn { display: inline-block; background-color: #3498db; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-size: 0.9rem; }
         .download-btn:hover { background-color: #2980b9; }
         .no-file { color: #95a5a6; font-style: italic; font-size: 0.9rem; }
+    
+        /* MOBILE OPTIMIZATIONS */
+        @media screen and (max-width: 768px) {
+            /* 1. Make the main container use full width */
+            body { padding: 10px; }
+            .container { width: 100%; padding: 0; }
+
+            /* 2. Fix the Table (Make it scroll sideways) */
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+
+            /* 3. Adjust Headers and Buttons */
+            h1 { font-size: 1.5rem; text-align: center; }
+            .header { flex-direction: column; text-align: center; }
+            .search-box { width: 100%; margin-bottom: 10px; }
+            
+            /* 4. Fix MP "Baseball Cards" (Stack them) */
+            .mp-grid { grid-template-columns: 1fr; } /* One card per row */
+        }
+        
     </style>
 </head>
 <body>
