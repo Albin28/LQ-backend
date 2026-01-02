@@ -54,6 +54,20 @@ def home():
     # Render the new UI (index.html)
     return render_template('index.html', bills=bills_list)
 
+# --- NEW ROUTE: MP DASHBOARD ---
+@app.route('/mps')
+def mps_dashboard():
+    # Fetch all MP records from Firebase
+    mps_ref = db.collection('mps')
+    docs = mps_ref.stream()
+    
+    mps_list = []
+    for doc in docs:
+        data = doc.to_dict()
+        mps_list.append(data)
+        
+    return render_template('mps.html', mps=mps_list)
+
 # 2. LOGIN PAGE
 @app.route('/login', methods=['GET', 'POST'])
 def login():

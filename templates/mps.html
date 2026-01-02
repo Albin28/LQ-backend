@@ -3,122 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LegisQ</title>
-    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+    <title>MP Performance Tracker</title>
     <style>
-        body { padding: 10px; background: #f4f4f9; max-width: 600px; margin: auto; }
-        /* Nav Bar */
-        .nav { display: flex; justify-content: space-around; background: white; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
-        .nav div { font-weight: bold; color: #555; cursor: pointer; }
-        .nav div.active { color: #007bff; border-bottom: 2px solid #007bff; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }
         
-        /* Cards */
-        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .title { font-weight: bold; font-size: 1.1rem; }
-        .tag { display: inline-block; background: #eef; color: #007bff; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin-top: 5px;}
+        /* HEADER */
+        header { background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
         
-        /* AI Section */
-        .summary-box { background: #f0f8ff; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; font-size: 0.9rem;}
-        .ai-btn { background: #6f42c1; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-top: 10px;}
+        /* CONTROL BAR */
+        .controls { background: white; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .search-box { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 200px; }
+        .filter-box { padding: 10px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
+
+        /* CARD GRID */
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; }
+
+        /* MP CARD */
+        .mp-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-top: 4px solid #3498db; transition: transform 0.2s; }
+        .mp-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+
+        .mp-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px; }
+        .mp-name { font-size: 1.1rem; font-weight: bold; color: #2c3e50; margin: 0; }
+        .mp-meta { font-size: 0.85rem; color: #7f8c8d; }
+
+        /* STATS */
+        .stats-row { display: flex; justify-content: space-between; margin-top: 15px; background: #f8f9fa; padding: 10px; border-radius: 5px; }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 1.2rem; font-weight: bold; color: #2c3e50; display: block; }
+        .stat-label { font-size: 0.7rem; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* ATTENDANCE COLORS */
+        .high-att { color: #27ae60; } 
+        .med-att { color: #f1c40f; }  
+        .low-att { color: #c0392b; }  
     </style>
 </head>
 <body>
-<div id="web-admin-btn" style="position: absolute; top: 10px; right: 10px; z-index: 1000;">
-   <a href="/login" style="text-decoration: none;">
-      <button style="padding: 10px 20px; background-color: #333; color: white; border: none; border-radius: 5px; cursor: pointer;">
-         Admin Access
-      </button>
-   </a>
-</div>
 
-    <div class="nav">
-        <div id="tab-mps" class="active" onclick="switchTab('mps')">MPs</div>
-        <div id="tab-bills" onclick="switchTab('bills')">Bills</div>
+    <header>
+        <div style="display: flex; align-items: center;">
+            <h1 style="margin: 0; margin-right: 20px; font-size: 1.5rem;">LegisQ</h1>
+            <nav>
+                <a href="/" style="color: white; text-decoration: none; margin-right: 15px; opacity: 0.8;">Bills</a>
+                <a href="/mps" style="color: white; text-decoration: none; font-weight: bold; border-bottom: 2px solid #3498db;">MPs</a>
+            </nav>
+        </div>
+        <a href="/login" style="background-color: #e74c3c; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-size: 0.9rem;">Admin</a>
+    </header>
+
+    <div class="controls">
+        <input type="text" id="searchInput" class="search-box" placeholder="Search Name...">
+        <select id="sessionFilter" class="filter-box"><option value="all">All Sessions</option><option value="Winter 2024">Winter 2024</option></select>
+        <select id="houseFilter" class="filter-box"><option value="all">All Houses</option><option value="Lok Sabha">Lok Sabha</option><option value="Rajya Sabha">Rajya Sabha</option></select>
+        <select id="stateFilter" class="filter-box"><option value="all">All States</option><option value="Gujarat">Gujarat</option><option value="Kerala">Kerala</option></select>
     </div>
 
-    <div id="mps-container"></div>
-
-    <div id="bills-container" style="display: none;"></div>
-
-    <script>
-        // 1. Fetch MPs
-        fetch('/api/mps').then(r => r.json()).then(data => {
-            const container = document.getElementById('mps-container');
-            data.forEach(mp => {
-                container.innerHTML += `
-                    <div class="card">
-                        <div class="title">${mp.name}</div>
-                        <small>${mp.party} | ${mp.constituency}</small> <br>
-                        <b>Attendance: ${mp.attendance}%</b>
-                    </div>`;
-            });
-        });
-
-        // 2. Fetch Bills
-        fetch('/api/bills').then(r => r.json()).then(data => {
-            const container = document.getElementById('bills-container');
-            data.forEach((bill, index) => {
-                container.innerHTML += `
-                    <div class="card">
-                        <div class="title">${bill.title}</div>
-                        <span class="tag">${bill.status}</span>
-                        <div style="margin-top:5px; color:#666; font-size:0.8rem;">${bill.date}</div>
-                        
-                        <button class="ai-btn" onclick="summarize(${index}, '${escape(bill.text)}')">✨ AI Summary</button>
-                        <div id="summary-${index}" class="summary-box">Loading AI magic...</div>
-                    </div>`;
-            });
-        });
-
-        // 3. AI Logic
-        function summarize(id, text) {
-            const box = document.getElementById(`summary-${id}`);
-            box.style.display = 'block';
+    <div class="grid-container" id="mpGrid">
+        {% for mp in mps %}
+        <div class="mp-card" 
+             data-name="{{ mp.name|default('')|lower }}" 
+             data-constituency="{{ mp.constituency|default('')|lower }}"
+             data-session="{{ mp.session|default('') }}"
+             data-house="{{ mp.house|default('') }}"
+             data-state="{{ mp.state|default('') }}">
             
-            fetch('/api/summarize', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text: unescape(text)})
-            })
-            .then(r => r.json())
-            .then(data => {
-                box.innerHTML = "<b>AI Summary:</b><br>" + data.summary.replace(/\n/g, '<br>');
+            <div class="mp-header">
+                <div>
+                    <h4 class="mp-name">{{ mp.name|default('Unknown Name') }}</h4>
+                    <div class="mp-meta">{{ mp.house|default('N/A') }} | {{ mp.state|default('N/A') }}</div>
+                    <div class="mp-meta" style="font-size: 0.8rem; margin-top:2px;">{{ mp.constituency|default('N/A') }}</div>
+                </div>
+                <span style="background:#eef2f3; padding:4px 8px; border-radius:4px; font-size:0.7rem; color:#555;">
+                    {{ mp.session|default('N/A') }}
+                </span>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-item">
+                    {% set att = mp.attendance_pct|default(0) %}
+                    <span class="stat-val {% if att >= 75 %}high-att{% elif att >= 50 %}med-att{% else %}low-att{% endif %}">
+                        {% if mp.attendance_pct is defined %}{{ mp.attendance_pct }}%{% else %}N/A{% endif %}
+                    </span>
+                    <span class="stat-label">Attendance</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-val">{{ mp.questions|default('N/A') }}</span>
+                    <span class="stat-label">Questions</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-val">{{ mp.debates|default('N/A') }}</span>
+                    <span class="stat-label">Debates</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const sessionFilter = document.getElementById('sessionFilter');
+        const houseFilter = document.getElementById('houseFilter');
+        const stateFilter = document.getElementById('stateFilter');
+        const cards = document.querySelectorAll('.mp-card');
+
+        function filterMPs() {
+            const term = searchInput.value.toLowerCase();
+            const session = sessionFilter.value;
+            const house = houseFilter.value;
+            const state = stateFilter.value;
+
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                const cons = card.getAttribute('data-constituency');
+                const cardSession = card.getAttribute('data-session');
+                const cardHouse = card.getAttribute('data-house');
+                const cardState = card.getAttribute('data-state');
+
+                const matchesSearch = name.includes(term) || cons.includes(term);
+                const matchesSession = (session === 'all') || (cardSession.includes(session));
+                const matchesHouse = (house === 'all') || (cardHouse === house);
+                const matchesState = (state === 'all') || (cardState === state);
+
+                card.style.display = (matchesSearch && matchesSession && matchesHouse && matchesState) ? "" : "none";
             });
         }
 
-        // 4. Tab Logic
-        function switchTab(tab) {
-            document.getElementById('mps-container').style.display = tab === 'mps' ? 'block' : 'none';
-            document.getElementById('bills-container').style.display = tab === 'bills' ? 'block' : 'none';
-            document.getElementById('tab-mps').classList.toggle('active', tab === 'mps');
-            document.getElementById('tab-bills').classList.toggle('active', tab === 'bills');
-        }
+        searchInput.addEventListener('keyup', filterMPs);
+        sessionFilter.addEventListener('change', filterMPs);
+        houseFilter.addEventListener('change', filterMPs);
+        stateFilter.addEventListener('change', filterMPs);
     </script>
-    <script>
-    // FIX: Hides the Web Admin button if inside Android App
-    const urlParams = new URLSearchParams(window.location.search);
-    const source = urlParams.get('source');
-
-    if (source === 'android') {
-        const btn = document.getElementById('web-admin-btn');
-        if (btn) {
-            btn.style.display = 'none'; // Poof! It's gone.
-        }
-    }
-</script>
 </body>
-
-<div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" width="150">
-    <h2 style="margin-top:20px; font-family:sans-serif;">Transparency. Access. Law.</h2>
-    <p>Loading...</p>
-</div>
-
-<script>
-    window.addEventListener('load', function() {
-        setTimeout(function() {
-            document.getElementById('splash-screen').style.display = 'none';
-        }, 2500); // Hides after 2.5 seconds
-    });
-</script>
 </html>
