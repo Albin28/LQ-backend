@@ -45,7 +45,7 @@ def home():
             'status': data.get('status', 'Unknown'),
             'category': data.get('category', 'General'),
             'date_introduced': str(data.get('date_introduced', 'N/A'))[:10],
-            'summary': data.get('summary', 'No summary available.'),
+            'summary': data.get('summary', ''),
             'file_path': data.get('file_path', '') 
         }
         bills_list.append(bill_data)
