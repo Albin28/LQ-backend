@@ -44,7 +44,7 @@ def home():
             'title': data.get('title', 'Untitled'),
             'status': data.get('status', 'Unknown'),
             'category': data.get('category', 'General'),
-            'date_introduced': data.get('date_introduced', 'N/A'),
+            'date_introduced': str(data.get('date_introduced', 'N/A'))[:10],
             'summary': data.get('summary', 'No summary available.'),
             'file_path': data.get('file_path', '') 
         }
