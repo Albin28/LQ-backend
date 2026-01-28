@@ -2,8 +2,11 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import pandas as pd
 import os
+import re
 
-# --- 1. SETUP FIREBASE ---
+# ==========================================
+# 1. SETUP FIREBASE
+# ==========================================
 if os.path.exists("serviceAccountKey.json"):
     cred = credentials.Certificate("serviceAccountKey.json")
 elif os.path.exists("/etc/secrets/serviceAccountKey.json"):
@@ -20,20 +23,33 @@ except ValueError:
     print("⚠️ Firebase app already initialized")
     db = firestore.client()
 
-# --- HELPER: FIND EXCEL FILE ---
-def find_excel_file(filename):
-    possible_paths = [f"static/dataset/{filename}", f"dataset/{filename}", filename]
+
+# ==========================================
+# 2. HELPER FUNCTIONS
+# ==========================================
+
+def find_data_file(filename):
+    """
+    Locates the data file (Excel or CSV) in common paths.
+    """
+    base_name = filename.split('.')[0]
+    possible_paths = [
+        filename,
+        f"static/dataset/{filename}",
+        f"dataset/{filename}",
+        f"{base_name}.csv",
+        f"static/dataset/{base_name}.csv"
+    ]
     for path in possible_paths:
         if os.path.exists(path):
-            print(f"   [FOUND] Excel: {path}")
+            print(f"   📂 Found Data File: {path}")
             return path
     return None
 
-# --- HELPER: SMART PDF FINDER ---
 def find_pdf_on_disk(directory, bill_id):
     """
-    Finds the PDF even if case sensitivity is different.
-    Input: "Bill_001" -> Finds: "Bill_001.pdf" or "bill_001.pdf"
+    Finds the PDF for a bill (case-insensitive search).
+    Input: "Bill_101" -> Finds: "Bill_101.pdf" or "bill_101.pdf"
     """
     if not os.path.exists(directory):
         return ""
@@ -43,108 +59,190 @@ def find_pdf_on_disk(directory, bill_id):
     
     for f in all_files:
         if f.lower() == target_name.lower():
-            return f  # Return the REAL filename (e.g. "Bill_001.pdf")
-            
+            return f 
     return ""
 
-# --- ENGINE 1: BILLS (FIXED!) ---
+def get_col(row, aliases, default=''):
+    """
+    Robustly gets a value from a row using multiple possible column names.
+    """
+    # Normalize row keys to lowercase for matching
+    row_lower = {k.lower().strip(): v for k, v in row.items()}
+    
+    for alias in aliases:
+        if alias.lower() in row_lower:
+            val = row_lower[alias.lower()]
+            if pd.isna(val) or str(val).strip() == "":
+                return default
+            return val
+    return default
+
+def sanitize_id(raw_id):
+    """
+    SAFETY: Converts 'Bill 12/2024' -> 'Bill_12-2024'
+    Prevents URL crashes and filesystem errors.
+    """
+    if pd.isna(raw_id): return "unknown_id"
+    # Replace slashes and spaces with dashes/underscores
+    safe_id = str(raw_id).strip().replace("/", "-").replace("\\", "-").replace(" ", "_")
+    # Remove any other special characters (keep alphanumeric, -, _)
+    return re.sub(r'[^a-zA-Z0-9_\-]', '', safe_id)
+
+def clean_date(raw_date):
+    """
+    Ensures dates are YYYY-MM-DD for correct sorting.
+    """
+    if pd.isna(raw_date) or str(raw_date).strip() == "":
+        return ""
+    try:
+        return pd.to_datetime(raw_date).strftime('%Y-%m-%d')
+    except:
+        return str(raw_date)
+
+# ==========================================
+# 3. UPLOAD ENGINES
+# ==========================================
+
 def upload_bills():
-    print("\n--- 1. BILLS UPLOAD ---")
-    file_path = find_excel_file("bills_metadata.xlsx")
-    if not file_path:
-        print("❌ Missing bills_metadata.xlsx")
+    print("\n--- 🚀 1. BILLS UPLOAD (Safe Mode) ---")
+    file_path = find_data_file("bills_metadata.xlsx")
+    if not file_path: 
+        print("❌ Missing bills_metadata file")
         return
 
-    df = pd.read_excel(file_path).fillna("")
-    batch = db.batch() 
+    # Load Data
+    if file_path.endswith('.csv'): df = pd.read_csv(file_path)
+    else: df = pd.read_excel(file_path)
+    
     dataset_folder = "static/dataset"
+    count_added = 0
+    count_skipped = 0
 
     for index, row in df.iterrows():
-        # --- KEY FIX: USING YOUR EXACT COLUMN NAME "Bill_id" ---
-        # We try 'Bill_id' first, then 'Bill ID' just in case.
-        raw_id = str(row.get('Bill_id', row.get('Bill ID', f'bill_{index}'))).strip()
-        
-        # Search for the PDF using the Smart Finder
-        real_filename = find_pdf_on_disk(dataset_folder, raw_id)
+        # 1. GET & SANITIZE ID
+        raw_val = get_col(row, ['Bill_id', 'Bill ID', 'ID'], f'bill_{index}')
+        clean_id = sanitize_id(raw_val)
 
+        # 2. CHECK EXISTENCE (Preserve Admin Edits)
+        doc_ref = db.collection('bills').document(clean_id)
+        if doc_ref.get().exists:
+            print(f"   ⏭️  SKIPPING: {clean_id} (Already exists)")
+            count_skipped += 1
+            continue
+
+        # 3. PREPARE NEW DATA
+        clean_date_val = clean_date(get_col(row, ['Date Introduced', 'Date', 'Date_Introduced']))
+        real_filename = find_pdf_on_disk(dataset_folder, clean_id)
+        
         if real_filename:
-            print(f"   🔹 MATCH: ID '{raw_id}' -> File '{real_filename}'")
+            print(f"   🔹 MATCH: ID '{clean_id}' -> PDF '{real_filename}'")
         else:
-            print(f"   🔸 MISSING: Could not find PDF for ID '{raw_id}'")
+            print(f"   🔸 MISSING PDF: For ID '{clean_id}'")
 
-        doc_ref = db.collection('bills').document(raw_id)
-        
         bill_data = {
-            'title': row.get('Title', 'Untitled'),
-            'category': str(row.get('Category', 'General')).strip(), 
-            'date_introduced': str(row.get('Date Introduced', '')).strip(),
-            'status': row.get('Status', 'Pending'),
-            'summary': row.get('Summary', 'No summary provided.'),
-            'file_path': real_filename 
+            'title': get_col(row, ['Title', 'Bill Title']),
+            'category': str(get_col(row, ['Category', 'Type'], 'General')).strip(),
+            'date_introduced': clean_date_val,
+            'status': get_col(row, ['Status'], 'Pending'), # Initial status only
+            'summary': get_col(row, ['Summary', 'Description'], 'No summary provided.'),
+            'file_path': real_filename
         }
-        batch.set(doc_ref, bill_data)
+        
+        doc_ref.set(bill_data)
+        count_added += 1
     
-    batch.commit()
-    print("✅ Bills Updated.")
+    print(f"📊 Bills Report: {count_added} Added, {count_skipped} Skipped.")
 
-# --- ENGINE 2: MPs ---
+
 def upload_mps():
-    print("\n--- 2. MP UPLOAD ---")
-    file_path = find_excel_file("mps_metadata.xlsx")
+    print("\n--- 🚀 2. MP UPLOAD (Safe Mode) ---")
+    file_path = find_data_file("mps_metadata.xlsx")
     if not file_path: return
 
-    df = pd.read_excel(file_path).fillna(0)
-    batch = db.batch()
+    if file_path.endswith('.csv'): df = pd.read_csv(file_path)
+    else: df = pd.read_excel(file_path)
+
+    count_added = 0
+    count_skipped = 0
 
     for index, row in df.iterrows():
-        # Using your exact columns: [Days_Attended], [Total_Days]
-        days_attended = float(row.get('Days_Attended', 0))
-        total_days = float(row.get('Total_Days', 1))
+        name = get_col(row, ['MP_Name', 'Name', 'MP'])
+        session = get_col(row, ['Session_Name', 'Session'], 'General')
+        
+        # ID Construction
+        doc_id = sanitize_id(f"{name}_{session}")
+        
+        # Check Existence
+        doc_ref = db.collection('mps').document(doc_id)
+        if doc_ref.get().exists:
+            print(f"   ⏭️  SKIPPING: {doc_id}")
+            count_skipped += 1
+            continue
+
+        # Calculations
+        days_attended = float(get_col(row, ['Days_Attended', 'Attended'], 0))
+        total_days = float(get_col(row, ['Total_Days', 'Total'], 1))
         attendance_pct = round((days_attended / total_days) * 100, 1) if total_days > 0 else 0
 
         mp_data = {
-            'name': row.get('MP_Name', 'Unknown MP'),
-            'state': str(row.get('State', 'Unknown')).title(),
-            'house': str(row.get('House', 'Lok Sabha')).title(),
-            'constituency': row.get('Constituency', 'N/A'),
-            'session': row.get('Session_Name', 'General'),
+            'name': name,
+            'state': str(get_col(row, ['State'], 'Unknown')).title(),
+            'house': str(get_col(row, ['House'], 'Lok Sabha')).title(),
+            'constituency': get_col(row, ['Constituency'], 'N/A'),
+            'session': session,
             'days_attended': int(days_attended),
             'total_days': int(total_days),
             'attendance_pct': attendance_pct,
-            'questions': int(row.get('Questions', 0)),
-            'debates': int(row.get('Debates', 0))
+            'questions': int(get_col(row, ['Questions'], 0)),
+            'debates': int(get_col(row, ['Debates'], 0))
         }
-        doc_id = f"{mp_data['name']}_{mp_data['session']}".replace(" ", "_")
-        batch.set(db.collection('mps').document(doc_id), mp_data)
+        
+        doc_ref.set(mp_data)
+        print(f"   ✅ ADDED: {doc_id}")
+        count_added += 1
 
-    batch.commit()
-    print("✅ MPs Updated.")
+    print(f"📊 MPs Report: {count_added} Added, {count_skipped} Skipped.")
 
-# --- ENGINE 3: CURRENT AFFAIRS ---
+
 def upload_ca():
-    print("\n--- 3. CURRENT AFFAIRS UPLOAD ---")
-    file_path = find_excel_file("current_affairs.xlsx")
+    print("\n--- 🚀 3. CURRENT AFFAIRS UPLOAD (Safe Mode) ---")
+    file_path = find_data_file("current_affairs.xlsx")
     if not file_path: return
 
-    df = pd.read_excel(file_path).fillna("")
-    batch = db.batch()
+    if file_path.endswith('.csv'): df = pd.read_csv(file_path)
+    else: df = pd.read_excel(file_path)
+
+    count_added = 0
+    count_skipped = 0
 
     for index, row in df.iterrows():
+        clean_id = sanitize_id(get_col(row, ['CA_ID', 'ID'], f'ca_{index}'))
+        
+        # Check Existence
+        doc_ref = db.collection('current_affairs').document(clean_id)
+        if doc_ref.get().exists:
+            print(f"   ⏭️  SKIPPING: {clean_id}")
+            count_skipped += 1
+            continue
+
         ca_data = {
-            'date': str(row.get('Date', '')).strip(),
-            'headline': row.get('Headline', 'Untitled'),
-            'link': row.get('Link', '#'),
-            'summary': row.get('Summary', '')
+            'date': clean_date(get_col(row, ['Date', 'Published'])),
+            'headline': get_col(row, ['Headline', 'Title'], 'Untitled'),
+            'link': get_col(row, ['Link', 'URL'], '#'),
+            'summary': get_col(row, ['Summary'], '')
         }
-        # Using your exact column: [CA_ID]
-        doc_id = str(row.get('CA_ID', f'ca_{index}'))
-        batch.set(db.collection('current_affairs').document(doc_id), ca_data)
+        
+        doc_ref.set(ca_data)
+        print(f"   ✅ ADDED: {clean_id}")
+        count_added += 1
 
-    batch.commit()
-    print("✅ Current Affairs Updated.")
+    print(f"📊 News Report: {count_added} Added, {count_skipped} Skipped.")
 
+# ==========================================
+# 4. EXECUTION
+# ==========================================
 if __name__ == "__main__":
     upload_bills()
     upload_mps()
     upload_ca()
-    print("\n🎉 ALL SYSTEMS UPDATED.")
+    print("\n🎉 ALL SYSTEMS SYNCED (Admin Data Preserved).")

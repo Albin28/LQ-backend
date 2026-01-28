@@ -4,8 +4,11 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # --- CONFIGURATION ---
+from dotenv import load_dotenv
+load_dotenv() # Load .env file
+
 app = Flask(__name__)
-app.secret_key = "legisq_secure_random_key_2025"  # Needed for Login session
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "legisq_default_dev_key") 
 
 # --- FIREBASE SETUP ---
 def get_firebase_credentials():
@@ -35,7 +38,8 @@ db = firestore.client()
 def home():
     # Fetch real bills from Firebase
     bills_ref = db.collection('bills')
-    docs = bills_ref.stream()
+    # Limit to 50 newest bills to save reads
+docs = bills_ref.order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50).stream()
 
     bills_list = []
     for doc in docs:
@@ -90,8 +94,11 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
 
-        # Hardcoded Admin Check
-        if username == "admin" and password == "admin123":
+        # Secure Admin Check (Environment Variables)
+        valid_user = os.getenv("ADMIN_USERNAME", "admin")
+        valid_pass = os.getenv("ADMIN_PASSWORD", "admin123") # Fallback only for dev
+
+        if username == valid_user and password == valid_pass:
             session['user'] = "admin"
             return redirect(url_for('admin_dashboard'))
         else:
