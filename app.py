@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash, send_from_directory
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -201,6 +201,12 @@ def debug_files():
         return jsonify({"path": path, "files": files})
     else:
         return jsonify({"error": f"Path not found: {path}"})
+
+@app.route('/download/<path:filename>')
+def download_file(filename):
+    # Securely serve files from static/dataset
+    directory = os.path.join(app.root_path, 'static', 'dataset')
+    return send_from_directory(directory, filename, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
