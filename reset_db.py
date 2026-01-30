@@ -26,4 +26,5 @@ def delete_collection(coll_name):
 
 delete_collection('bills')
 delete_collection('mps')
+delete_collection('current_affairs')
 print("--- DATABASE RESET COMPLETE ---")
