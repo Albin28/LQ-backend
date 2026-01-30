@@ -189,5 +189,15 @@ def get_bills_json():
     docs = db.collection('bills').stream()
     return jsonify([doc.to_dict() for doc in docs])
 
+@app.route('/debug_files')
+def debug_files():
+    import os
+    path = os.path.join(app.root_path, 'static', 'dataset')
+    if os.path.exists(path):
+        files = os.listdir(path)
+        return jsonify({"path": path, "files": files})
+    else:
+        return jsonify({"error": f"Path not found: {path}"})
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
