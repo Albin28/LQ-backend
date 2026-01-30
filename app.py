@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 load_dotenv() # Load .env file
 
 app = Flask(__name__)
+# Enable WhiteNoise for static file serving on Render
+from whitenoise import WhiteNoise
+app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "legisq_default_dev_key") 
 
 # --- FIREBASE SETUP ---
