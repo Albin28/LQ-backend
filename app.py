@@ -1,5 +1,6 @@
 import os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
+import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -11,20 +12,19 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "legisq_default_dev_key") 
 
 # --- FIREBASE SETUP ---
-def get_firebase_credentials():
-    # 1. Look for file locally (Laptop)
-    if os.path.exists("serviceAccountKey.json"):
-        return "serviceAccountKey.json"
-    # 2. Look for file on Cloud (Render)
-    elif os.path.exists("/etc/secrets/serviceAccountKey.json"):
-        return "/etc/secrets/serviceAccountKey.json"
-    else:
-        return None
-
 if not firebase_admin._apps:
-    key_path = get_firebase_credentials()
-    if key_path:
-        cred = credentials.Certificate(key_path)
+    # 1. Try Env Var (Vercel Production)
+    if os.getenv("FIREBASE_CREDENTIALS"):
+        try:
+            cred_dict = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            print(f"❌ Error loading Firebase Env: {e}")
+    
+    # 2. Try Local File (Dev)
+    elif os.path.exists("serviceAccountKey.json"):
+        cred = credentials.Certificate("serviceAccountKey.json")
         firebase_admin.initialize_app(cred)
     else:
         print("❌ WARNING: No Firebase Key found! Database will not work.")
