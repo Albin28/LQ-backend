@@ -63,7 +63,7 @@
 
                 <div class="mt-auto">
                     {% if bill.file_path %}
-                    <a href="{{ url_for('download_file', filename=bill.file_path) }}" class="btn-secondary">
+                    <a href="/static/dataset/{{ bill.file_path }}" class="btn-secondary" download>
                         📥 Download PDF
                     </a>
                     {% else %}

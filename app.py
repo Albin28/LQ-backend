@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash, send_from_directory
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -8,9 +8,6 @@ from dotenv import load_dotenv
 load_dotenv() # Load .env file
 
 app = Flask(__name__)
-# Enable WhiteNoise for static file serving on Render
-from whitenoise import WhiteNoise
-app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "legisq_default_dev_key") 
 
 # --- FIREBASE SETUP ---
@@ -191,22 +188,6 @@ def update_mp(mp_id):
 def get_bills_json():
     docs = db.collection('bills').stream()
     return jsonify([doc.to_dict() for doc in docs])
-
-@app.route('/debug_files')
-def debug_files():
-    import os
-    path = os.path.join(app.root_path, 'static', 'dataset')
-    if os.path.exists(path):
-        files = os.listdir(path)
-        return jsonify({"path": path, "files": files})
-    else:
-        return jsonify({"error": f"Path not found: {path}"})
-
-@app.route('/download/<path:filename>')
-def download_file(filename):
-    # Securely serve files from static/dataset
-    directory = os.path.join(app.root_path, 'static', 'dataset')
-    return send_from_directory(directory, filename, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
