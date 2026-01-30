@@ -12,34 +12,49 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "legisq_default_dev_key") 
 
 # --- FIREBASE SETUP ---
-if not firebase_admin._apps:
-    # 1. Try Env Var (Vercel Production)
-    if os.getenv("FIREBASE_CREDENTIALS"):
-        try:
-            cred_dict = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
-        except Exception as e:
-            print(f"❌ Error loading Firebase Env: {e}")
-    
-    # 2. Try Local File (Dev)
-    elif os.path.exists("serviceAccountKey.json"):
-        cred = credentials.Certificate("serviceAccountKey.json")
-        firebase_admin.initialize_app(cred)
-    else:
-        print("❌ WARNING: No Firebase Key found! Database will not work.")
+# Global DB variable
+db = None
+db_error = None
 
-db = firestore.client()
+try:
+    if not firebase_admin._apps:
+        # 1. Try Env Var (Vercel Production)
+        if os.getenv("FIREBASE_CREDENTIALS"):
+            try:
+                cred_dict = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+            except Exception as e:
+                db_error = f"Env Var Error: {e}"
+        
+        # 2. Try Local File (Dev)
+        elif os.path.exists("serviceAccountKey.json"):
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+        else:
+            db_error = "No Credentials Found (Env Var or File)"
+
+    if not db_error:
+        try:
+            db = firestore.client()
+        except Exception as e:
+            db_error = f"Firestore Client Init Error: {e}"
+
+except Exception as e:
+    db_error = f"Unexpected Init Error: {e}"
 
 # --- PUBLIC ROUTES ---
 
 # 1. HOME PAGE (Bills Dashboard)
 @app.route('/')
 def home():
+    if db is None:
+        return f"<h1>Database Connection Failed</h1><p>Error Detail: {db_error}</p><p>Please check your Vercel Environment Variables.</p>"
+
     # Fetch real bills from Firebase
     bills_ref = db.collection('bills')
     # Limit to 50 newest bills to save reads
-docs = bills_ref.order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50).stream()
+    docs = bills_ref.order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50).stream()
 
     bills_list = []
     for doc in docs:
