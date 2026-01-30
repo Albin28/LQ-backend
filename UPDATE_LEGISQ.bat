@@ -52,7 +52,7 @@ PAUSE
 
 :: --- STEP 6: DEPLOY ---
 echo.
-echo [STEP 3/3] Pushing to Render...
+echo [STEP 3/3] Pushing to Vercel...
 git commit -m "Auto-Update via Debug Script"
 git push origin main
 echo ✅ Done.
