@@ -109,6 +109,23 @@
 
             <!-- BILLS SECTION -->
             <div id="bills" class="section active">
+                <div class="mb-4">
+                    <button onclick="toggleForm('add-bill-form')" class="btn-secondary">+ Add New Bill</button>
+                    <div id="add-bill-form" style="display:none; margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                        <h4 style="margin-top:0;">Add New Bill</h4>
+                        <input type="text" id="bill-title" placeholder="Bill Title" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                        <select id="bill-category" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                            <option value="General">General</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Education">Education</option>
+                            <option value="Health">Health</option>
+                        </select>
+                        <input type="date" id="bill-date" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                        <textarea id="bill-summary" placeholder="Summary" style="width: 100%; padding: 8px; margin-bottom: 10px;"></textarea>
+                        <button onclick="addBill()" class="btn-primary" style="background: var(--primary); color: white; padding: 10px 20px; border: none; cursor: pointer;">Save Bill</button>
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="admin-table">
                         <thead>
@@ -142,6 +159,22 @@
 
             <!-- MPS SECTION -->
             <div id="mps" class="section">
+                 <div class="mb-4">
+                    <button onclick="toggleForm('add-mp-form')" class="btn-secondary">+ Add New MP</button>
+                    <div id="add-mp-form" style="display:none; margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                        <h4 style="margin-top:0;">Add New MP</h4>
+                        <input type="text" id="mp-name" placeholder="Name" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                        <input type="text" id="mp-constituency" placeholder="Constituency" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                        <input type="text" id="mp-state" placeholder="State" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                        <input type="text" id="mp-session" placeholder="Session (e.g. Budget 2024)" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                        <input type="number" id="mp-attended" placeholder="Days Attended" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                        <input type="number" id="mp-total" placeholder="Total Days" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                         <input type="number" id="mp-questions" placeholder="Questions" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                        <input type="number" id="mp-debates" placeholder="Debates" style="width: 48%; padding: 8px; margin-bottom: 10px;">
+                        <button onclick="addMP()" class="btn-primary" style="background: var(--primary); color: white; padding: 10px 20px; border: none; cursor: pointer;">Save MP</button>
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="admin-table">
                         <thead>
@@ -182,6 +215,61 @@
     </div>
 
     <script>
+        // FORM TOGGLER
+        function toggleForm(id) {
+            let el = document.getElementById(id);
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // ADD BILL
+        function addBill() {
+            let title = document.getElementById('bill-title').value;
+            let category = document.getElementById('bill-category').value;
+            let date = document.getElementById('bill-date').value;
+            let summary = document.getElementById('bill-summary').value;
+            
+            if(!title) return alert("Title is required");
+
+            fetch('/add_bill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, category, date_introduced: date, summary })
+            }).then(res => {
+                if(res.ok) location.reload();
+                else alert("Error adding bill");
+            });
+        }
+
+        // ADD MP
+        function addMP() {
+            let name = document.getElementById('mp-name').value;
+            let session = document.getElementById('mp-session').value;
+            let days_attended = document.getElementById('mp-attended').value;
+            let total_days = document.getElementById('mp-total').value;
+            
+            if(!name || !session) return alert("Name and Session are required");
+
+            let data = {
+                name, 
+                state: document.getElementById('mp-state').value,
+                constituency: document.getElementById('mp-constituency').value,
+                session,
+                days_attended: days_attended, 
+                total_days: total_days,
+                questions: document.getElementById('mp-questions').value,
+                debates: document.getElementById('mp-debates').value
+            };
+
+            fetch('/add_mp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(res => {
+                if(res.ok) location.reload();
+                else alert("Error adding MP");
+            });
+        }
+
         // TAB SWITCHER
         function switchTab(tabName, event) {
             document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));

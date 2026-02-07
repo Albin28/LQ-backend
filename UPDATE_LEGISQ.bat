@@ -7,7 +7,6 @@ echo [DEBUG] Navigating to Project Folder...
 E:
 cd "E:\legisq"
 echo Current Directory: %CD%
-PAUSE
 
 :: --- STEP 2: ACTIVATE VENV ---
 echo.
@@ -18,14 +17,12 @@ if exist "venv\Scripts\activate.bat" (
 ) else (
     echo [WARNING] venv not found. Using global python.
 )
-PAUSE
 
 :: --- STEP 3: INSTALL LIBRARIES (Just in case) ---
 echo.
 echo [DEBUG] Ensuring Libraries are Installed...
 :: We try to install them silently. If they exist, this skips instantly.
 pip install firebase-admin pandas openpyxl
-PAUSE
 
 :: --- STEP 4: UPDATE DATABASE ---
 echo.
@@ -40,7 +37,6 @@ IF %ERRORLEVEL% NEQ 0 (
     goto :EOF
 )
 echo ✅ Database Synced.
-PAUSE
 
 :: --- STEP 5: FORCE PDFs ---
 echo.
@@ -48,7 +44,6 @@ echo [STEP 2/3] Locking PDFs...
 git add .
 git add -f static/dataset/*.pdf
 echo ✅ PDFs Locked.
-PAUSE
 
 :: --- STEP 6: DEPLOY ---
 echo.

@@ -125,10 +125,8 @@ def upload_bills():
 
         # 2. CHECK EXISTENCE (Preserve Admin Edits)
         doc_ref = db.collection('bills').document(clean_id)
-        if doc_ref.get().exists:
-            print(f"   ⏭️  SKIPPING: {clean_id} (Already exists)")
-            count_skipped += 1
-            continue
+        # CHANGED: We now UPDATE instead of SKIP to allow Excel edits
+        is_update = doc_ref.get().exists
 
         # 3. PREPARE NEW DATA
         clean_date_val = clean_date(get_col(row, ['Date Introduced', 'Date', 'Date_Introduced']))
@@ -148,7 +146,11 @@ def upload_bills():
             'file_path': real_filename
         }
         
-        doc_ref.set(bill_data)
+        doc_ref.set(bill_data, merge=True)
+        if is_update:
+            print(f"   🔄 UPDATED: {clean_id}")
+        else:
+            print(f"   ✅ ADDED: {clean_id}")
         count_added += 1
     
     print(f"📊 Bills Report: {count_added} Added, {count_skipped} Skipped.")
@@ -174,10 +176,7 @@ def upload_mps():
         
         # Check Existence
         doc_ref = db.collection('mps').document(doc_id)
-        if doc_ref.get().exists:
-            print(f"   ⏭️  SKIPPING: {doc_id}")
-            count_skipped += 1
-            continue
+        is_update = doc_ref.get().exists
 
         # Calculations
         days_attended = float(get_col(row, ['Days_Attended', 'Attended'], 0))
@@ -197,8 +196,11 @@ def upload_mps():
             'debates': int(get_col(row, ['Debates'], 0))
         }
         
-        doc_ref.set(mp_data)
-        print(f"   ✅ ADDED: {doc_id}")
+        doc_ref.set(mp_data, merge=True)
+        if is_update:
+             print(f"   🔄 UPDATED: {doc_id}")
+        else:
+             print(f"   ✅ ADDED: {doc_id}")
         count_added += 1
 
     print(f"📊 MPs Report: {count_added} Added, {count_skipped} Skipped.")
@@ -220,10 +222,7 @@ def upload_ca():
         
         # Check Existence
         doc_ref = db.collection('current_affairs').document(clean_id)
-        if doc_ref.get().exists:
-            print(f"   ⏭️  SKIPPING: {clean_id}")
-            count_skipped += 1
-            continue
+        is_update = doc_ref.get().exists
 
         ca_data = {
             'date': clean_date(get_col(row, ['Date', 'Published'])),
@@ -232,8 +231,11 @@ def upload_ca():
             'summary': get_col(row, ['Summary'], '')
         }
         
-        doc_ref.set(ca_data)
-        print(f"   ✅ ADDED: {clean_id}")
+        doc_ref.set(ca_data, merge=True)
+        if is_update:
+             print(f"   🔄 UPDATED: {clean_id}")
+        else:
+             print(f"   ✅ ADDED: {clean_id}")
         count_added += 1
 
     print(f"📊 News Report: {count_added} Added, {count_skipped} Skipped.")

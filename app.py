@@ -201,6 +201,70 @@ def update_mp(mp_id):
     except Exception as e:
         return str(e), 500
 
+# 10. ADD BILL (NEW!)
+@app.route('/add_bill', methods=['POST'])
+def add_bill():
+    if 'user' not in session: return "Unauthorized", 401
+    
+    try:
+        data = request.get_json()
+        title = data.get('title')
+        
+        # Simple ID generation
+        import re
+        safe_id = re.sub(r'[^a-zA-Z0-9_\-]', '', title.strip().replace(" ", "_"))
+        
+        bill_data = {
+            'title': title,
+            'category': data.get('category', 'General'),
+            'date_introduced': data.get('date_introduced', ''),
+            'status': data.get('status', 'Pending'),
+            'summary': data.get('summary', ''),
+            'file_path': '' # Optional file
+        }
+        
+        db.collection('bills').document(safe_id).set(bill_data)
+        return "Added", 200
+    except Exception as e:
+        return str(e), 500
+
+# 11. ADD MP (NEW!)
+@app.route('/add_mp', methods=['POST'])
+def add_mp():
+    if 'user' not in session: return "Unauthorized", 401
+    
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        session_name = data.get('session')
+        
+        # ID generation
+        import re
+        safe_id = re.sub(r'[^a-zA-Z0-9_\-]', '', f"{name}_{session_name}".strip().replace(" ", "_"))
+        
+        # Calculations
+        days = int(data.get('days_attended', 0))
+        total = int(data.get('total_days', 1))
+        pct = round((days / total) * 100, 1) if total > 0 else 0
+        
+        mp_data = {
+            'name': name,
+            'state': data.get('state', ''),
+            'house': data.get('house', 'Lok Sabha'),
+            'constituency': data.get('constituency', ''),
+            'session': session_name,
+            'days_attended': days,
+            'total_days': total,
+            'attendance_pct': pct,
+            'questions': int(data.get('questions', 0)),
+            'debates': int(data.get('debates', 0))
+        }
+        
+        db.collection('mps').document(safe_id).set(mp_data)
+        return "Added", 200
+    except Exception as e:
+        return str(e), 500
+
 # --- HELPER API ---
 @app.route('/api/bills')
 def get_bills_json():
