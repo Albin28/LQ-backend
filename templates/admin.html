@@ -85,6 +85,55 @@
         .overflow-x-auto {
             overflow-x: auto;
         }
+
+        .form-panel {
+            display: none;
+            margin-top: 15px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .form-panel h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--text-main);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .form-row .form-input {
+            flex: 1;
+            min-width: 45%;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
     </style>
 </head>
 
@@ -111,23 +160,18 @@
             <div id="bills" class="section active">
                 <div class="mb-4">
                     <button onclick="toggleForm('add-bill-form')" class="btn-secondary">+ Add New Bill</button>
-                    <div id="add-bill-form"
-                        style="display:none; margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 8px;">
-                        <h4 style="margin-top:0;">Add New Bill</h4>
-                        <input type="text" id="bill-title" placeholder="Bill Title"
-                            style="width: 100%; padding: 8px; margin-bottom: 10px;">
-                        <select id="bill-category" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                    <div id="add-bill-form" class="form-panel">
+                        <h4>Add New Bill</h4>
+                        <input type="text" id="bill-title" placeholder="Bill Title" class="form-input">
+                        <select id="bill-category" class="form-input">
                             <option value="General">General</option>
                             <option value="Finance">Finance</option>
                             <option value="Education">Education</option>
                             <option value="Health">Health</option>
                         </select>
-                        <input type="date" id="bill-date" style="width: 100%; padding: 8px; margin-bottom: 10px;">
-                        <textarea id="bill-summary" placeholder="Summary"
-                            style="width: 100%; padding: 8px; margin-bottom: 10px;"></textarea>
-                        <button onclick="addBill()" class="btn-primary"
-                            style="background: var(--primary); color: white; padding: 10px 20px; border: none; cursor: pointer;">Save
-                            Bill</button>
+                        <input type="date" id="bill-date" class="form-input">
+                        <textarea id="bill-summary" placeholder="Summary" class="form-input" rows="3"></textarea>
+                        <button onclick="addBill()" class="btn-primary">Save Bill</button>
                     </div>
                 </div>
 
@@ -166,28 +210,26 @@
             <div id="mps" class="section">
                 <div class="mb-4">
                     <button onclick="toggleForm('add-mp-form')" class="btn-secondary">+ Add New MP</button>
-                    <div id="add-mp-form"
-                        style="display:none; margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 8px;">
-                        <h4 style="margin-top:0;">Add New MP</h4>
-                        <input type="text" id="mp-name" placeholder="Name"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <input type="text" id="mp-constituency" placeholder="Constituency"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <input type="text" id="mp-state" placeholder="State"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <input type="text" id="mp-session" placeholder="Session (e.g. Budget 2024)"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <input type="number" id="mp-attended" placeholder="Days Attended"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <input type="number" id="mp-total" placeholder="Total Days"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <input type="number" id="mp-questions" placeholder="Questions"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <input type="number" id="mp-debates" placeholder="Debates"
-                            style="width: 48%; padding: 8px; margin-bottom: 10px;">
-                        <button onclick="addMP()" class="btn-primary"
-                            style="background: var(--primary); color: white; padding: 10px 20px; border: none; cursor: pointer;">Save
-                            MP</button>
+                    <div id="add-mp-form" class="form-panel">
+                        <h4>Add New MP</h4>
+                        <div class="form-row">
+                            <input type="text" id="mp-name" placeholder="Name" class="form-input">
+                            <input type="text" id="mp-session" placeholder="Session (e.g. Budget 2024)"
+                                class="form-input">
+                        </div>
+                        <div class="form-row">
+                            <input type="text" id="mp-constituency" placeholder="Constituency" class="form-input">
+                            <input type="text" id="mp-state" placeholder="State" class="form-input">
+                        </div>
+                        <div class="form-row">
+                            <input type="number" id="mp-attended" placeholder="Days Attended" class="form-input">
+                            <input type="number" id="mp-total" placeholder="Total Days" class="form-input">
+                        </div>
+                        <div class="form-row">
+                            <input type="number" id="mp-questions" placeholder="Questions" class="form-input">
+                            <input type="number" id="mp-debates" placeholder="Debates" class="form-input">
+                        </div>
+                        <button onclick="addMP()" class="btn-primary">Save MP</button>
                     </div>
                 </div>
 
