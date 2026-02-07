@@ -82,11 +82,25 @@ def mps_dashboard():
     docs = mps_ref.stream()
     
     mps_list = []
+    # Sets for unique filter values
+    sessions = set()
+    houses = set()
+    states = set()
+
     for doc in docs:
         data = doc.to_dict()
         mps_list.append(data)
         
-    return render_template('mps.html', mps=mps_list)
+        # Collect unique values for filters
+        if data.get('session'): sessions.add(data.get('session'))
+        if data.get('house'): houses.add(data.get('house'))
+        if data.get('state'): states.add(data.get('state'))
+        
+    return render_template('mps.html', 
+                           mps=mps_list,
+                           sessions=sorted(list(sessions)),
+                           houses=sorted(list(houses)),
+                           states=sorted(list(states)))
 
 # 3. CURRENT AFFAIRS PAGE (NEW!)
 @app.route('/current_affairs')

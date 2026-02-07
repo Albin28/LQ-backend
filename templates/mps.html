@@ -29,17 +29,21 @@
                 aria-label="Search MPs">
             <select id="sessionFilter" class="filter-select" aria-label="Filter by Session">
                 <option value="all">All Sessions</option>
-                <option value="Winter 2024">Winter 2024</option>
+                {% for s in sessions %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
             </select>
             <select id="houseFilter" class="filter-select" aria-label="Filter by House">
                 <option value="all">All Houses</option>
-                <option value="Lok Sabha">Lok Sabha</option>
-                <option value="Rajya Sabha">Rajya Sabha</option>
+                {% for h in houses %}
+                <option value="{{ h }}">{{ h }}</option>
+                {% endfor %}
             </select>
             <select id="stateFilter" class="filter-select" aria-label="Filter by State">
                 <option value="all">All States</option>
-                <option value="Gujarat">Gujarat</option>
-                <option value="Kerala">Kerala</option>
+                {% for st in states %}
+                <option value="{{ st }}">{{ st }}</option>
+                {% endfor %}
             </select>
         </div>
 
