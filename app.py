@@ -221,20 +221,33 @@ def add_bill():
     if 'user' not in session: return "Unauthorized", 401
     
     try:
-        data = request.get_json()
-        title = data.get('title')
+        # Changed to handle Form Data (File Upload)
+        title = request.form.get('title')
+        category = request.form.get('category', 'General')
+        date_intro = request.form.get('date_introduced', '')
         
         # Simple ID generation
         import re
         safe_id = re.sub(r'[^a-zA-Z0-9_\-]', '', title.strip().replace(" ", "_"))
         
+        # 1. Handle File Upload
+        file_path = ''
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and file.filename != '':
+                # FORCE filename to match ID (Terminology Rule)
+                filename = f"{safe_id}.pdf"
+                save_path = os.path.join("static/dataset", filename)
+                file.save(save_path)
+                file_path = filename
+
         bill_data = {
             'title': title,
-            'category': data.get('category', 'General'),
-            'date_introduced': data.get('date_introduced', ''),
-            'status': data.get('status', 'Pending'),
-            'summary': data.get('summary', ''),
-            'file_path': '' # Optional file
+            'category': category,
+            'date_introduced': date_intro,
+            'status': 'Pending',
+            # REMOVED: Summary field (User Request)
+            'file_path': file_path 
         }
         
         db.collection('bills').document(safe_id).set(bill_data)

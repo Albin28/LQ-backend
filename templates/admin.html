@@ -134,6 +134,22 @@
         .btn-primary:hover {
             opacity: 0.9;
         }
+
+        .file-upload-group {
+            margin-bottom: 10px;
+        }
+
+        .file-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .file-help {
+            color: gray;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 
@@ -170,7 +186,13 @@
                             <option value="Health">Health</option>
                         </select>
                         <input type="date" id="bill-date" class="form-input">
-                        <textarea id="bill-summary" placeholder="Summary" class="form-input" rows="3"></textarea>
+                        <!-- REMOVED: Summary (User Request) -->
+                        <!-- ADDED: PDF Upload -->
+                        <div class="file-upload-group">
+                            <label class="file-label">Upload Bill PDF:</label>
+                            <input type="file" id="bill-file" accept=".pdf" class="form-input">
+                            <small class="file-help">File will be automatically renamed to match the Bill Title.</small>
+                        </div>
                         <button onclick="addBill()" class="btn-primary">Save Bill</button>
                     </div>
                 </div>
@@ -284,14 +306,23 @@
             let title = document.getElementById('bill-title').value;
             let category = document.getElementById('bill-category').value;
             let date = document.getElementById('bill-date').value;
-            let summary = document.getElementById('bill-summary').value;
+            let fileInput = document.getElementById('bill-file');
 
             if (!title) return alert("Title is required");
 
+            // Use FormData for File Uploads
+            let formData = new FormData();
+            formData.append('title', title);
+            formData.append('category', category);
+            formData.append('date_introduced', date);
+
+            if (fileInput.files.length > 0) {
+                formData.append('file', fileInput.files[0]);
+            }
+
             fetch('/add_bill', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, category, date_introduced: date, summary })
+                body: formData // No Content-Type header (browser sets boundary)
             }).then(res => {
                 if (res.ok) location.reload();
                 else alert("Error adding bill");
