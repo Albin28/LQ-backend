@@ -6,202 +6,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LegisQ Admin Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        /* Admin Specific styles kept here for structure, inline attributes moved to classes */
-        .tab-bar {
-            display: flex;
-            border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 30px;
-        }
-
-        .tab-btn {
-            padding: 15px 25px;
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--text-muted);
-            border-bottom: 3px solid transparent;
-            font-size: 1rem;
-            transition: 0.3s;
-        }
-
-        .tab-btn:hover {
-            color: var(--primary);
-        }
-
-        .tab-btn.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-        }
-
-        .section {
-            display: none;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        .section.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(5px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .admin-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-
-        .admin-table th {
-            text-align: left;
-            padding: 15px;
-            background: #f8fafc;
-            color: var(--text-muted);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 1px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .admin-table td {
-            padding: 15px;
-            border-bottom: 1px solid #e2e8f0;
-            vertical-align: middle;
-        }
-
-        .admin-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .overflow-x-auto {
-            overflow-x: auto;
-        }
-
-        .form-panel {
-            display: none;
-            margin-top: 15px;
-            padding: 20px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .form-panel h4 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: var(--text-main);
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .form-row .form-input {
-            flex: 1;
-            min-width: 45%;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-primary:hover {
-            opacity: 0.9;
-        }
-
-        .file-upload-group {
-            margin-bottom: 10px;
-        }
-
-        .file-label {
-            font-size: 0.9rem;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .file-help {
-            color: gray;
-            font-size: 0.8rem;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
 </head>
 
-<body>
+<body class="aurora-bg">
 
-    <header>
-        <div class="brand">
-            <span>LegisQ Admin</span>
-        </div>
-        <div>
-            <a href="/" class="btn-secondary">Check Live Site</a>
-        </div>
-    </header>
+    <div class="container container-xl">
 
-    <div class="container">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="brand flex items-center gap-3">
+                <span class="text-2rem">🏛️</span>
+                <div>
+                    <h1 class="text-xl-bold text-white">LegisQ</h1>
+                    <span class="tracking-wide-xs">Command Center</span>
+                </div>
+            </div>
+            <div>
+                <a href="/" class="btn-glass text-sm">View Live Site ↗</a>
+                <a href="/logout" class="btn-glass text-sm btn-logout">Logout</a>
+            </div>
+        </header>
 
-        <div class="card mb-4">
+        <div class="mb-4">
             <div class="tab-bar">
-                <div class="tab-btn active" onclick="switchTab('bills', event)">Manage Bills</div>
-                <div class="tab-btn" onclick="switchTab('mps', event)">Manage MPs</div>
+                <button class="tab-btn active" onclick="switchTab('bills', event)">📜 Legislation</button>
+                <button class="tab-btn" onclick="switchTab('mps', event)">👥 Representatives</button>
             </div>
 
             <!-- BILLS SECTION -->
             <div id="bills" class="section active">
-                <div class="mb-4">
-                    <button onclick="toggleForm('add-bill-form')" class="btn-secondary">+ Add New Bill</button>
-                    <div id="add-bill-form" class="form-panel">
-                        <h4>Add New Bill</h4>
-                        <input type="text" id="bill-title" placeholder="Bill Title" class="form-input">
-                        <select id="bill-category" class="form-input">
+                <div class="mb-6 flex justify-between items-center">
+                    <h2 class="text-white text-2xl font-bold">Manage Bills</h2>
+                    <button onclick="toggleForm('add-bill-form')" class="btn-glow btn-add">+ Add Bill</button>
+                </div>
+
+                <div id="add-bill-form" class="form-panel">
+                    <h4 class="text-white mb-4 text-lg">New Legislation Entry</h4>
+                    <label for="bill-title" class="sr-only">Bill Title</label>
+                    <input type="text" id="bill-title" placeholder="Bill Title" class="input-neon">
+
+                    <div class="form-row">
+                        <label for="bill-category" class="sr-only">Category</label>
+                        <select id="bill-category" class="input-neon input-flex">
                             <option value="General">General</option>
                             <option value="Finance">Finance</option>
                             <option value="Education">Education</option>
                             <option value="Health">Health</option>
+                            <option value="Infrastructure">Infrastructure</option>
                         </select>
-                        <input type="date" id="bill-date" class="form-input">
-                        <!-- REMOVED: Summary (User Request) -->
-                        <!-- ADDED: PDF Upload -->
-                        <div class="file-upload-group">
-                            <label class="file-label">Upload Bill PDF:</label>
-                            <input type="file" id="bill-file" accept=".pdf" class="form-input">
-                            <small class="file-help">File will be automatically renamed to match the Bill Title.</small>
-                        </div>
-                        <button onclick="addBill()" class="btn-primary">Save Bill</button>
+                        <label for="bill-date" class="sr-only">Date Introduced</label>
+                        <input type="date" id="bill-date" class="input-neon input-flex" aria-label="Date Introduced">
                     </div>
+
+                    <div class="file-upload-box">
+                        <label for="bill-file" class="text-white mb-2 block">Upload Bill Document (PDF)</label>
+                        <input type="file" id="bill-file" accept=".pdf" class="text-muted">
+                        <small class="file-help">File will be standardized and renamed automatically.</small>
+                    </div>
+
+                    <button onclick="addBill()" class="btn-primary w-full">Save Records</button>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="admin-table">
                         <thead>
                             <tr>
-                                <th>Title</th>
+                                <th>Legislation Title</th>
                                 <th>Category</th>
                                 <th>Status</th>
                                 <th class="text-right">Actions</th>
@@ -211,15 +83,16 @@
                             {% for bill in bills %}
                             <tr id="row-{{ bill.id }}">
                                 <td>
-                                    <div class="font-medium text-main">{{ bill.title }}</div>
+                                    <div class="font-bold text-white text-lg">{{ bill.title }}</div>
+                                    <div class="text-xs text-muted">{{ bill.date_introduced }}</div>
                                 </td>
-                                <td><span class="badge bg-gray-100 text-slate-600">{{ bill.category }}</span></td>
+                                <td><span class="badge-glass text-xs">{{ bill.category }}</span></td>
                                 <td><span class="badge status-{{ bill.status|lower }}">{{ bill.status }}</span></td>
                                 <td class="text-right">
                                     <button onclick="updateBillStatus('{{ bill.id }}')"
-                                        class="btn-secondary btn-sm">Status</button>
+                                        class="btn-status">Update</button>
                                     <button onclick="deleteItem('bills', '{{ bill.id }}')"
-                                        class="badge status-rejected btn-del">Delete</button>
+                                        class="btn-del">Remove</button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -230,58 +103,71 @@
 
             <!-- MPS SECTION -->
             <div id="mps" class="section">
-                <div class="mb-4">
-                    <button onclick="toggleForm('add-mp-form')" class="btn-secondary">+ Add New MP</button>
-                    <div id="add-mp-form" class="form-panel">
-                        <h4>Add New MP</h4>
-                        <div class="form-row">
-                            <input type="text" id="mp-name" placeholder="Name" class="form-input">
-                            <input type="text" id="mp-session" placeholder="Session (e.g. Budget 2024)"
-                                class="form-input">
-                        </div>
-                        <div class="form-row">
-                            <input type="text" id="mp-constituency" placeholder="Constituency" class="form-input">
-                            <input type="text" id="mp-state" placeholder="State" class="form-input">
-                        </div>
-                        <div class="form-row">
-                            <input type="number" id="mp-attended" placeholder="Days Attended" class="form-input">
-                            <input type="number" id="mp-total" placeholder="Total Days" class="form-input">
-                        </div>
-                        <div class="form-row">
-                            <input type="number" id="mp-questions" placeholder="Questions" class="form-input">
-                            <input type="number" id="mp-debates" placeholder="Debates" class="form-input">
-                        </div>
-                        <button onclick="addMP()" class="btn-primary">Save MP</button>
+                <div class="mb-6 flex justify-between items-center">
+                    <h2 class="text-white text-2xl font-bold">Manage Representatives</h2>
+                    <button onclick="toggleForm('add-mp-form')" class="btn-glow btn-add">+ Add MP</button>
+                </div>
+
+                <div id="add-mp-form" class="form-panel">
+                    <h4 class="text-white mb-4 text-lg">New Representative Entry</h4>
+                    <div class="form-row">
+                        <label for="mp-name" class="sr-only">Name</label>
+                        <input type="text" id="mp-name" placeholder="Name" class="input-neon">
+                        <label for="mp-session" class="sr-only">Session</label>
+                        <input type="text" id="mp-session" placeholder="Session (e.g. Budget 2024)" class="input-neon">
                     </div>
+                    <div class="form-row">
+                        <label for="mp-constituency" class="sr-only">Constituency</label>
+                        <input type="text" id="mp-constituency" placeholder="Constituency" class="input-neon">
+                        <label for="mp-state" class="sr-only">State</label>
+                        <input type="text" id="mp-state" placeholder="State" class="input-neon">
+                    </div>
+                    <div class="form-row">
+                        <label for="mp-attended" class="sr-only">Days Attended</label>
+                        <input type="number" id="mp-attended" placeholder="Days Attended" class="input-neon">
+                        <label for="mp-total" class="sr-only">Total Days</label>
+                        <input type="number" id="mp-total" placeholder="Total Days" class="input-neon">
+                    </div>
+                    <div class="form-row">
+                        <label for="mp-questions" class="sr-only">Questions</label>
+                        <input type="number" id="mp-questions" placeholder="Questions" class="input-neon">
+                        <label for="mp-debates" class="sr-only">Debates</label>
+                        <input type="number" id="mp-debates" placeholder="Debates" class="input-neon">
+                    </div>
+                    <button onclick="addMP()" class="btn-primary w-full">Save MP Record</button>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="admin-table">
                         <thead>
                             <tr>
-                                <th>MP Name</th>
+                                <th>Name & details</th>
                                 <th>Session</th>
-                                <th>Attendance</th>
-                                <th class="text-right">Actions</th>
+                                <th>Attendance Metrics</th>
+                                <th class="text-right">Manage</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for mp in mps %}
                             <tr id="row-{{ mp.id }}">
                                 <td>
-                                    <div class="font-bold text-main">{{ mp.name }}</div>
-                                    <div class="text-xs text-muted">{{ mp.house }}</div>
+                                    <div class="font-bold text-white text-lg">{{ mp.name }}</div>
+                                    <div class="text-xs text-muted">{{ mp.constituency }}, {{ mp.state }}</div>
                                 </td>
-                                <td>{{ mp.session }}</td>
+                                <td class="text-white">{{ mp.session }}</td>
                                 <td>
-                                    <span id="att-{{ mp.id }}" class="font-bold text-primary">{{ mp.attendance_pct
-                                        }}%</span>
+                                    <div class="flex items-center gap-2">
+                                        <div class="bar-bg">
+                                            <div class="bar-fill" data-width="{{ mp.attendance_pct }}"></div>
+                                        </div>
+                                        <span id="att-{{ mp.id }}" class="font-bold text-primary">{{ mp.attendance_pct
+                                            }}%</span>
+                                    </div>
                                 </td>
                                 <td class="text-right">
-                                    <button onclick="updateMPAttendance('{{ mp.id }}')"
-                                        class="btn-secondary btn-sm">Edit %</button>
-                                    <button onclick="deleteItem('mps', '{{ mp.id }}')"
-                                        class="badge status-rejected btn-del">Delete</button>
+                                    <button onclick="updateMPAttendance('{{ mp.id }}')" class="btn-status">Edit
+                                        %</button>
+                                    <button onclick="deleteItem('mps', '{{ mp.id }}')" class="btn-del">Delete</button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -291,14 +177,13 @@
             </div>
 
         </div>
-
     </div>
 
     <script>
         // FORM TOGGLER
         function toggleForm(id) {
             let el = document.getElementById(id);
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+            el.style.display = el.style.display === 'none' || el.style.display === '' ? 'block' : 'none';
         }
 
         // ADD BILL
@@ -322,7 +207,7 @@
 
             fetch('/add_bill', {
                 method: 'POST',
-                body: formData // No Content-Type header (browser sets boundary)
+                body: formData
             }).then(res => {
                 if (res.ok) location.reload();
                 else alert("Error adding bill");
@@ -367,7 +252,7 @@
             event.target.classList.add('active');
         }
 
-        // DELETE (Universal for both Bills and MPs)
+        // DELETE
         function deleteItem(type, id) {
             if (!confirm("Are you sure? This cannot be undone.")) return;
             let route = type === 'bills' ? '/delete_bill/' : '/delete_mp/';
@@ -403,12 +288,19 @@
                 }).then(res => {
                     if (res.ok) {
                         document.getElementById('att-' + id).innerText = val + "%";
+                        location.reload(); // Reload to update bar
                     } else {
                         alert("Error updating.");
                     }
                 });
             }
         }
+        // Initialize Progress Bars
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll('.bar-fill').forEach(el => {
+                el.style.width = el.getAttribute('data-width') + '%';
+            });
+        });
     </script>
 </body>
 
