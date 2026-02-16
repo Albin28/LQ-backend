@@ -1,115 +1,126 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LegisQ - Legislation Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
+{% block content %}
 
-<body>
+<!-- Hero Section -->
+<div class="hero-section">
+    <h1 class="text-kinetic">Democracy, <br><span class="text-gradient">Transparent.</span></h1>
+    <p class="hero-subtitle text-kinetic animate-delay-1">
+        Track legislation, monitor parliamentary activity, and stay informed with real-time data from the heart of
+        Indian democracy.
+    </p>
 
-    <header>
-        <div class="brand">
-            <!-- Optional: <img src="/static/logo.png" height="30" alt="Logo"> -->
-            <span>LegisQ</span>
-        </div>
-        <nav class="nav-links">
-            <a href="/mps" class="nav-item">MPs</a>
-            <a href="/current_affairs" class="nav-item">News</a>
-        </nav>
-        <a href="/login" class="btn-primary text-decoration-none">Admin Login</a>
-    </header>
-
-    <div class="container">
-        <!-- Controls Section -->
-        <div class="controls-bar">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search legislation..."
-                aria-label="Search legislation">
-            <select id="categoryFilter" class="filter-select" aria-label="Filter by Category">
-                <option value="all">All Categories</option>
-                <option value="Education">Education</option>
-                <option value="Finance">Finance</option>
-                <option value="Defence">Defence</option>
-                <option value="Health">Health</option>
-                <option value="Technology">Technology</option>
-                <option value="Environment">Environment</option>
-            </select>
-        </div>
-
-        <h3 class="mb-4">Recent Legislation</h3>
-
-        <!-- Bills List -->
-        <div id="billsList" class="grid-cols-1">
-            {% if bills %}
-            {% for bill in bills %}
-            <div class="card" data-category="{{ bill.category|default('General') }}">
-                <div class="card-header">
-                    <h4 class="card-title search-target">{{ bill.title }}</h4>
-                    <span class="badge status-{{ bill.status|lower }}">{{ bill.status }}</span>
-                </div>
-
-                <div class="card-meta">
-                    <span>📂 {{ bill.category }}</span>
-                    <span>📅 {{ bill.date_introduced }}</span>
-                </div>
-
-
-
-                <div class="mt-auto">
-                    {% if bill.file_path %}
-                    <a href="/static/dataset/{{ bill.file_path }}" class="btn-secondary" download>
-                        📥 Download PDF
-                    </a>
-                    {% else %}
-                    <span class="text-muted text-sm font-italic">PDF
-                        Unavailable</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-            {% else %}
-            <div class="empty-state">
-                <p>No bills found at the moment.</p>
-            </div>
-            {% endif %}
-        </div>
+    <!-- Glass Controls -->
+    <div class="controls-glass text-kinetic animate-delay-2">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="search-input-glass" placeholder="Search bills, keywords, or dates..."
+            aria-label="Search bills">
+        <select id="categoryFilter" class="select-glass" aria-label="Filter by Category">
+            <option value="all">All Categories</option>
+            <option value="Education">Education</option>
+            <option value="Finance">Finance</option>
+            <option value="Defence">Defence</option>
+            <option value="Health">Health</option>
+            <option value="Technology">Technology</option>
+            <option value="Environment">Environment</option>
+        </select>
     </div>
+</div>
 
-    <!-- Mobile Nav (Bottom Fixed for convenience, optional enhancement) -->
-    <div id="mobileNav">
-        <!-- Could be added later -->
+<!-- Main Grid -->
+<div class="container">
+    <div id="billsList" class="grid-news">
+        {% if bills %}
+        {% for bill in bills %}
+        <div class="glass-panel" data-category="{{ bill.category|default('General') }}">
+
+            <div class="card-header-flex">
+                <span class="badge-glass badge-category">📂 {{ bill.category }}</span>
+                <span class="badge-glass badge-status-{{ bill.status|lower }}">{{ bill.status }}</span>
+            </div>
+
+            <h3 class="search-target mb-2 card-title-large">
+                {{ bill.title }}
+            </h3>
+
+            <!-- Date -->
+            <div class="text-muted text-sm mb-4">
+                Introduced: {{ bill.date_introduced }}
+            </div>
+
+            <div class="card-footer-action">
+                {% if bill.file_path %}
+                <a href="/static/dataset/{{ bill.file_path }}" class="btn-glass btn-glass-primary btn-full-width"
+                    download>
+                    Download PDF ⬇️
+                </a>
+                {% else %}
+                <button class="btn-glass btn-full-width btn-disabled" disabled>
+                    PDF Unavailable
+                </button>
+                {% endif %}
+            </div>
+
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="glass-panel text-center col-span-full">
+            <h2>No Bills Found</h2>
+            <p class="text-muted">The database is currently empty.</p>
+        </div>
+        {% endif %}
     </div>
+</div>
 
-    <script>
-        const searchInput = document.getElementById('searchInput');
-        const categoryFilter = document.getElementById('categoryFilter');
-        const cards = document.querySelectorAll('.card');
+<script>
+    // Animation Logic for Elements
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = 1;
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    });
 
-        function filterBills() {
-            const term = searchInput.value.toLowerCase();
-            const category = categoryFilter.value;
+    document.querySelectorAll('.glass-panel').forEach((el, index) => {
+        el.style.opacity = 0;
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = `all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) ${index * 0.1}s`; // Stagger effect
+        observer.observe(el);
+    });
 
-            cards.forEach(card => {
-                const title = card.querySelector('.search-target').innerText.toLowerCase();
-                const cardCategory = card.getAttribute('data-category');
+    // Search Logic
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const cards = document.querySelectorAll('.glass-panel');
 
-                const matchesSearch = title.includes(term);
-                const matchesCategory = (category === 'all') || (cardCategory === category);
+    function filterBills() {
+        const term = searchInput.value.toLowerCase();
+        const category = categoryFilter.value;
 
-                if (matchesSearch && matchesCategory) {
-                    card.style.display = "flex";
-                } else {
-                    card.style.display = "none";
-                }
-            });
-        }
+        cards.forEach(card => {
+            const title = card.querySelector('.search-target').innerText.toLowerCase();
+            const cardCategory = card.getAttribute('data-category');
 
-        searchInput.addEventListener('keyup', filterBills);
-        categoryFilter.addEventListener('change', filterBills);
-    </script>
+            const matchesSearch = title.includes(term);
+            const matchesCategory = (category === 'all') || (cardCategory === category);
 
-</body>
+            if (matchesSearch && matchesCategory) {
+                card.style.display = "block";
+                setTimeout(() => {
+                    card.style.opacity = 1;
+                    card.style.transform = 'translateY(0)';
+                }, 100);
+            } else {
+                card.style.display = "none";
+                card.style.opacity = 0;
+            }
+        });
+    }
 
-</html>
+    searchInput.addEventListener('keyup', filterBills);
+    categoryFilter.addEventListener('change', filterBills);
+</script>
+
+{% endblock %}

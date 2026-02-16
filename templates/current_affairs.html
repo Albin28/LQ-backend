@@ -1,225 +1,119 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LegisQ - Current Affairs</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        /* RSS Card Specific Styles */
-        .news-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 2rem;
-            padding: 1rem 0;
-        }
+{% block content %}
 
-        .news-card {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            transition: transform 0.2s, box-shadow 0.2s;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #e2e8f0;
-        }
-
-        .news-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        .news-image-container {
-            height: 180px;
-            background-color: #f1f5f9;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .news-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .news-placeholder {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-            color: #64748b;
-            font-weight: 600;
-            font-size: 1.5rem;
-        }
-
-        /* New Source Badges per channel */
-        .source-badge {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: white;
-            background-color: #334155;
-            /* Default */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .source-ndtv {
-            background-color: #ef4444;
-        }
-
-        .source-toi {
-            background-color: #2563eb;
-        }
-
-        .source-hindu {
-            background-color: #059669;
-        }
-
-        .source-ie {
-            background-color: #d97706;
-        }
-
-        .source-ht {
-            background-color: #0ea5e9;
-        }
-
-        .source-news18 {
-            background-color: #7c3aed;
-        }
-
-        .source-zee {
-            background-color: #db2777;
-        }
-
-        .card-content {
-            padding: 1.5rem;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .news-date {
-            font-size: 0.875rem;
-            color: #64748b;
-            margin-bottom: 0.5rem;
-        }
-
-        .news-title {
-            font-size: 1.125rem;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 0.75rem;
-            line-height: 1.4;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .news-summary {
-            font-size: 0.95rem;
-            color: #475569;
-            margin-bottom: 1.5rem;
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            flex-grow: 1;
-        }
-
-        .read-more-btn {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background-color: transparent;
-            color: #2563eb;
-            border: 1px solid #2563eb;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .read-more-btn:hover {
-            background-color: #2563eb;
-            color: white;
-        }
-    </style>
-</head>
-
-<body>
-
-    <header>
-        <div class="brand">
-            <span>LegisQ</span>
+<div class="container section-padding-top">
+    <!-- Header -->
+    <div class="flex-between-center mb-12">
+        <div>
+            <h2 class="text-kinetic">Daily Briefing</h2>
+            <p class="text-muted text-kinetic animate-delay-1 text-lg">Top stories curated for you.</p>
         </div>
-        <nav class="nav-links">
-            <a href="/" class="nav-item">Bills</a>
-            <a href="/mps" class="nav-item">MPs</a>
-            <a href="/current_affairs" class="nav-item active">News</a>
-        </nav>
-        <a href="/login" class="btn-primary text-decoration-none">Admin Login</a>
-    </header>
-
-    <div class="container container-md">
-        <div class="flex justify-between items-center mb-6 mt-8">
-            <h2 class="section-title mb-0">Latest Headlines 🇮🇳</h2>
-            <span class="text-sm text-gray-500">Auto-updated every 15 mins</span>
+        <div class="text-kinetic animate-delay-2 text-align-right">
+            <span class="badge-glass live-badge">
+                <span class="live-dot"></span>
+                LIVE
+            </span>
         </div>
-
-        {% if news %}
-        <div class="news-grid">
-            {% for item in news %}
-            <div class="news-card">
-                <div class="news-image-container">
-                    {% if item.image %}
-                    <img src="{{ item.image }}" alt="News Image" class="news-image"
-                        onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\'news-placeholder\'>{{ item.source }}</div>';">
-                    {% else %}
-                    <div class="news-placeholder">
-                        {{ item.source }}
-                    </div>
-                    {% endif %}
-                    <span class="source-badge source-{{ item.source_class }}">{{ item.source }}</span>
-                </div>
-
-                <div class="card-content">
-                    <div class="news-date">{{ item.date }}</div>
-                    <h3 class="news-title">
-                        <a href="{{ item.link }}" target="_blank"
-                            class="text-decoration-none text-dark hover:text-primary">
-                            {{ item.headline }}
-                        </a>
-                    </h3>
-                    <p class="news-summary">
-                        {{ item.summary }}
-                    </p>
-                    <a href="{{ item.link }}" target="_blank" class="read-more-btn">
-                        Read Full Story
-                    </a>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-12">
-            <div class="text-6xl mb-4">📰</div>
-            <h3 class="text-xl font-bold text-gray-700">Loading News...</h3>
-            <p class="text-gray-500">If this persists, please check your internet connection.</p>
-        </div>
-        {% endif %}
-
     </div>
 
-</body>
+    {% if news %}
 
-</html>
+    <!-- 1. Hero Section (Bento Grid) -->
+    <!-- We take item 0 as Featured, items 1-3 as Side List -->
+    <div class="news-hero-grid">
+
+        <!-- Main Featured Story (Left) -->
+        {% set featured = news[0] %}
+        <a href="{{ featured.link }}" target="_blank" class="hero-featured-card animate-delay-1 hero-link">
+            {% if featured.image %}
+            <img src="{{ featured.image }}" class="hero-featured-image" alt="Featured News"
+                onerror="this.src='https://source.unsplash.com/800x600/?news,politics'">
+            {% else %}
+            <div class="hero-featured-image news-placeholder">FEATURED</div>
+            {% endif %}
+
+            <div class="hero-overlay">
+                <span class="badge-glass mb-2 badge-hero">{{ featured.source }}</span>
+                <h1 class="hero-title text-white">{{ featured.headline }}</h1>
+                <p class="text-muted line-clamp-2 hero-summary">{{ featured.summary }}</p>
+                <div class="text-sm text-muted mt-2">{{ featured.date }}</div>
+            </div>
+        </a>
+
+        <!-- Side List (Right) -->
+        <div class="side-list-container animate-delay-2">
+            {% for item in news[1:4] %}
+            <a href="{{ item.link }}" target="_blank" class="side-card">
+                {% if item.image %}
+                <img src="{{ item.image }}" class="side-thumb" alt="Thumb" onerror="this.style.display='none'">
+                {% endif %}
+                <div class="flex-1">
+                    <span class="text-xs text-muted">{{ item.source }} &bull; {{ item.date.split(' ')[0] }}</span>
+                    <h4 class="side-card-title">{{ item.headline }}</h4>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 2. Main Feed (Masonry/Grid) -->
+    <h3 class="mb-4 section-title-large">Latest Updates</h3>
+    <div class="feed-grid animate-delay-3">
+        {% for item in news[4:] %}
+        <a href="{{ item.link }}" target="_blank" class="feed-card card-link-reset">
+            <div class="feed-image-container">
+                {% if item.image %}
+                <img src="{{ item.image }}" class="feed-thumb" alt="News" onerror="this.style.display='none'">
+                {% else %}
+                <div class="feed-thumb news-placeholder placeholder-sm">NEWS</div>
+                {% endif %}
+            </div>
+
+            <div class="feed-content">
+                <div class="flex-between-center mb-2">
+                    <span class="badge-glass badge-xs">{{ item.source }}</span>
+                    <span class="text-xs text-muted">{{ item.date }}</span>
+                </div>
+
+                <h3 class="group-hover:text-accent feed-title">
+                    {{ item.headline }}
+                </h3>
+
+                <p class="text-muted text-sm line-clamp-2">
+                    {{ item.summary }}
+                </p>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="glass-panel text-center col-span-full">
+        <h2>Connecting to Global Feed...</h2>
+        <p class="text-muted">Fetching latest encrypted news streams.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    // Fade Up Animation
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = 1;
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    });
+
+    document.querySelectorAll('.feed-card').forEach((el, index) => {
+        el.style.opacity = 0;
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = `all 0.5s ease ${index * 0.05}s`;
+        observer.observe(el);
+    });
+</script>
+
+{% endblock %}

@@ -1,137 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MP Performance Tracker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
+{% block content %}
 
-<body>
-
-    <header>
-        <div class="brand">
-            <span>LegisQ</span>
-        </div>
-        <nav class="nav-links">
-            <a href="/" class="nav-item">Bills</a>
-            <a href="/mps" class="nav-item active">MPs</a>
-            <a href="/current_affairs" class="nav-item">News</a>
-        </nav>
-        <a href="/login" class="btn-primary text-decoration-none">Admin Login</a>
-    </header>
-
-    <div class="container">
-        <!-- Controls -->
-        <div class="controls-bar">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search by name or constituency..."
-                aria-label="Search MPs">
-            <select id="sessionFilter" class="filter-select" aria-label="Filter by Session">
-                <option value="all">All Sessions</option>
-                {% for s in sessions %}
-                <option value="{{ s }}">{{ s }}</option>
-                {% endfor %}
-            </select>
-            <select id="houseFilter" class="filter-select" aria-label="Filter by House">
-                <option value="all">All Houses</option>
-                {% for h in houses %}
-                <option value="{{ h }}">{{ h }}</option>
-                {% endfor %}
-            </select>
-            <select id="stateFilter" class="filter-select" aria-label="Filter by State">
-                <option value="all">All States</option>
-                {% for st in states %}
-                <option value="{{ st }}">{{ st }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <h3 class="mb-4">Parliament Member Performance</h3>
-
-        <div class="grid-cols-2" id="mpGrid">
-            {% for mp in mps %}
-            <div class="card" data-name="{{ mp.name|default('')|lower }}"
-                data-constituency="{{ mp.constituency|default('')|lower }}" data-session="{{ mp.session|default('') }}"
-                data-house="{{ mp.house|default('') }}" data-state="{{ mp.state|default('') }}">
-
-                <div class="card-header">
-                    <div class="flex-aic">
-                        <div class="mp-avatar-placeholder">
-                            {{ mp.name[0]|upper if mp.name else '?' }}
-                        </div>
-                        <div>
-                            <h4 class="card-title">{{ mp.name|default('Unknown Name') }}</h4>
-                            <div class="card-meta mb-0 text-sm">
-                                {{ mp.house|default('N/A') }} • {{ mp.state|default('N/A') }}
-                                <br>
-                                {{ mp.constituency|default('N/A') }}
-                            </div>
-                        </div>
-                    </div>
-                    <span class="badge status-med">
-                        {{ mp.session|default('N/A') }}
-                    </span>
-                </div>
-
-                <div class="stat-grid">
-                    <div class="stat-box">
-                        {% set att = mp.attendance_pct|default(0) %}
-                        {% set att_class = 'text-success' if att >= 75 else ('text-warning' if att >= 50 else
-                        'text-danger') %}
-                        <span class="stat-value {{ att_class }}">
-                            {% if mp.attendance_pct is defined %}{{ mp.attendance_pct }}%{% else %}N/A{% endif %}
-                        </span>
-                        <span class="stat-label">Attendance</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-value">{{ mp.questions|default('N/A') }}</span>
-                        <span class="stat-label">Questions</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-value">{{ mp.debates|default('N/A') }}</span>
-                        <span class="stat-label">Debates</span>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+<div class="container section-padding-top">
+    <div class="text-center mb-12">
+        <h2 class="text-kinetic">Representatives</h2>
+        <p class="text-muted text-kinetic animate-delay-1 text-lg">Track attendance, participation,
+            and performance.</p>
     </div>
 
-    <script>
-        const searchInput = document.getElementById('searchInput');
-        const sessionFilter = document.getElementById('sessionFilter');
-        const houseFilter = document.getElementById('houseFilter');
-        const stateFilter = document.getElementById('stateFilter');
-        const cards = document.querySelectorAll('.card');
+    <!-- MP Grid -->
+    <div class="grid-mps">
+        {% for mp in mps %}
+        <div class="glass-panel mp-card-inner">
 
-        function filterMPs() {
-            const term = searchInput.value.toLowerCase();
-            const session = sessionFilter.value;
-            const house = houseFilter.value;
-            const state = stateFilter.value;
+            <div class="mp-header-flex">
+                <!-- Avatar Circle -->
+                <div class="mp-avatar-circle">
+                    👤
+                </div>
 
-            cards.forEach(card => {
-                const name = card.getAttribute('data-name');
-                const cons = card.getAttribute('data-constituency');
-                const cardSession = card.getAttribute('data-session');
-                const cardHouse = card.getAttribute('data-house');
-                const cardState = card.getAttribute('data-state');
+                <div>
+                    <h3 class="mp-name-header">{{ mp.name }}</h3>
+                    <div class="text-sm text-muted">{{ mp.constituency }}, {{ mp.state }}</div>
+                </div>
+            </div>
 
-                const matchesSearch = name.includes(term) || cons.includes(term);
-                const matchesSession = (session === 'all') || (cardSession.includes(session));
-                const matchesHouse = (house === 'all') || (cardHouse === house);
-                const matchesState = (state === 'all') || (cardState === state);
+            <!-- Stats Grid -->
+            <div class="mp-stats-grid">
+                <div class="text-center">
+                    <div class="stat-value-lg color-accent">{{ mp.attendance_pct }}%</div>
+                    <div class="stat-label-xs">Attendance</div>
+                </div>
+                <div class="text-center stat-item-border">
+                    <div class="stat-value-lg color-pink">{{ mp.questions }}</div>
+                    <div class="stat-label-xs">Questions</div>
+                </div>
+                <div class="text-center">
+                    <div class="stat-value-lg color-yellow">{{ mp.debates }}</div>
+                    <div class="stat-label-xs">Debates</div>
+                </div>
+            </div>
 
-                card.style.display = (matchesSearch && matchesSession && matchesHouse && matchesState) ? "flex" : "none";
-            });
-        }
+            <div class="mp-footer-flex">
+                <span class="badge-glass">{{ mp.house }}</span>
+                <span class="text-sm text-muted">{{ mp.session }}</span>
+            </div>
 
-        searchInput.addEventListener('keyup', filterMPs);
-        sessionFilter.addEventListener('change', filterMPs);
-        houseFilter.addEventListener('change', filterMPs);
-        stateFilter.addEventListener('change', filterMPs);
-    </script>
-</body>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 
-</html>
+<script>
+    // Staggered Entry Animation
+    document.querySelectorAll('.glass-panel').forEach((el, index) => {
+        el.style.opacity = 0;
+        el.style.transform = 'translateY(20px)';
+        el.style.animation = `fadeUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards ${index * 0.05}s`;
+    });
+</script>
+
+{% endblock %}

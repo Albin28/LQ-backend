@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegisQ Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo="> <!-- Empty favicon fix -->
+</head>
+
+<body>
+
+    <!-- Floating Glass Navigation -->
+    <div class="nav-wrapper">
+        <nav class="glass-nav">
+            <a href="/" class="nav-brand">
+                <span class="logo-icon">🏛️</span> LegisQ
+            </a>
+
+            <div class="nav-links">
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Legislation</a>
+                <a href="/mps" class="nav-link {% if '/mps' in request.path %}active{% endif %}">MPs</a>
+                <a href="/current_affairs"
+                    class="nav-link {% if '/current_affairs' in request.path %}active{% endif %}">News</a>
+            </div>
+
+            <a href="/login" class="btn-nav-action">Login</a>
+        </nav>
+    </div>
+
+    <!-- Main Content Injection -->
+    {% block content %}{% endblock %}
+
+    <!-- Footer / Space -->
+    <div class="footer-spacer"></div>
+
+</body>
+
+</html>
