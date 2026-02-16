@@ -6,6 +6,154 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LegisQ - Current Affairs</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* RSS Card Specific Styles */
+        .news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2rem;
+            padding: 1rem 0;
+        }
+
+        .news-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e2e8f0;
+        }
+
+        .news-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .news-image-container {
+            height: 180px;
+            background-color: #f1f5f9;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .news-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .news-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            color: #64748b;
+            font-weight: 600;
+            font-size: 1.5rem;
+        }
+
+        /* New Source Badges per channel */
+        .source-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: white;
+            background-color: #334155;
+            /* Default */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .source-ndtv {
+            background-color: #ef4444;
+        }
+
+        .source-toi {
+            background-color: #2563eb;
+        }
+
+        .source-hindu {
+            background-color: #059669;
+        }
+
+        .source-ie {
+            background-color: #d97706;
+        }
+
+        .source-ht {
+            background-color: #0ea5e9;
+        }
+
+        .source-news18 {
+            background-color: #7c3aed;
+        }
+
+        .source-zee {
+            background-color: #db2777;
+        }
+
+        .card-content {
+            padding: 1.5rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .news-date {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+
+        .news-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .news-summary {
+            font-size: 0.95rem;
+            color: #475569;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        .read-more-btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background-color: transparent;
+            color: #2563eb;
+            border: 1px solid #2563eb;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .read-more-btn:hover {
+            background-color: #2563eb;
+            color: white;
+        }
+    </style>
 </head>
 
 <body>
@@ -22,35 +170,51 @@
         <a href="/login" class="btn-primary text-decoration-none">Admin Login</a>
     </header>
 
-    <div class="container container-sm">
-        <h2 class="section-title">Latest Updates</h2>
+    <div class="container container-md">
+        <div class="flex justify-between items-center mb-6 mt-8">
+            <h2 class="section-title mb-0">Latest Headlines 🇮🇳</h2>
+            <span class="text-sm text-gray-500">Auto-updated every 15 mins</span>
+        </div>
 
         {% if news %}
-        {% for item in news %}
-        <div class="card card-border-l">
-            <div class="card-meta">
-                <span class="font-bold text-secondary">NEWS UPDATE</span>
-                <span>{{ item.date }}</span>
-            </div>
+        <div class="news-grid">
+            {% for item in news %}
+            <div class="news-card">
+                <div class="news-image-container">
+                    {% if item.image %}
+                    <img src="{{ item.image }}" alt="News Image" class="news-image"
+                        onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\'news-placeholder\'>{{ item.source }}</div>';">
+                    {% else %}
+                    <div class="news-placeholder">
+                        {{ item.source }}
+                    </div>
+                    {% endif %}
+                    <span class="source-badge source-{{ item.source_class }}">{{ item.source }}</span>
+                </div>
 
-            <h3 class="card-title mb-2 text-xl">{{ item.headline }}</h3>
-
-            <div class="card-body text-md text-slate-600">
-                {{ item.summary }}
+                <div class="card-content">
+                    <div class="news-date">{{ item.date }}</div>
+                    <h3 class="news-title">
+                        <a href="{{ item.link }}" target="_blank"
+                            class="text-decoration-none text-dark hover:text-primary">
+                            {{ item.headline }}
+                        </a>
+                    </h3>
+                    <p class="news-summary">
+                        {{ item.summary }}
+                    </p>
+                    <a href="{{ item.link }}" target="_blank" class="read-more-btn">
+                        Read Full Story
+                    </a>
+                </div>
             </div>
-
-            {% if item.link and item.link != '#' %}
-            <div class="mt-2">
-                <a href="{{ item.link }}" target="_blank" class="btn-secondary btn-outline-secondary">
-                    Read Full Article →
-                </a>
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
-        {% endfor %}
         {% else %}
-        <div class="text-center text-muted p-10">
-            <p>No updates available at the moment.</p>
+        <div class="text-center py-12">
+            <div class="text-6xl mb-4">📰</div>
+            <h3 class="text-xl font-bold text-gray-700">Loading News...</h3>
+            <p class="text-gray-500">If this persists, please check your internet connection.</p>
         </div>
         {% endif %}
 

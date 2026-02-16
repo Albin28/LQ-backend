@@ -102,22 +102,107 @@ def mps_dashboard():
                            houses=sorted(list(houses)),
                            states=sorted(list(states)))
 
-# 3. CURRENT AFFAIRS PAGE (NEW!)
+# --- RSS FEED SETUP ---
+import feedparser
+import time
+from time import mktime
+from datetime import datetime
+
+RSS_FEEDS = [
+    {"url": "https://feeds.feedburner.com/ndtvnews-top-stories", "source": "NDTV", "class": "ndtv"},
+    {"url": "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms", "source": "Times of India", "class": "toi"},
+    {"url": "https://www.thehindu.com/news/national/feeder/default.rss", "source": "The Hindu", "class": "hindu"},
+    {"url": "https://indianexpress.com/section/india/feed/", "source": "Indian Express", "class": "ie"},
+    {"url": "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml", "source": "Hindustan Times", "class": "ht"},
+    {"url": "https://www.news18.com/commonfeeds/v1/en/rss/india.xml", "source": "News18", "class": "news18"},
+    {"url": "https://zeenews.india.com/rss/india-national-news.xml", "source": "Zee News", "class": "zee"}
+]
+
+RSS_CACHE_FILE = "rss_cache.json"
+CACHE_DURATION = 900  # 15 minutes in seconds
+
+def get_rss_news():
+    # 1. Check Cache
+    if os.path.exists(RSS_CACHE_FILE):
+        try:
+            current_time = time.time()
+            file_mod_time = os.path.getmtime(RSS_CACHE_FILE)
+            
+            if current_time - file_mod_time < CACHE_DURATION:
+                with open(RSS_CACHE_FILE, 'r') as f:
+                    print("✅ Serving News from Cache")
+                    return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Cache Read Error: {e}")
+
+    # 2. Fetch from Feeds
+    print("🌍 Fetching News from RSS Feeds...")
+    all_news = []
+    
+    for feed in RSS_FEEDS:
+        try:
+            parsed_feed = feedparser.parse(feed['url'])
+            
+            # Limit to top 3 entries per feed to keep it balanced
+            for entry in parsed_feed.entries[:3]:
+                # Image Extraction Logic (Best Effort)
+                image_url = None
+                
+                # Method A: Media Content (Standard RSS/Atom)
+                if 'media_content' in entry:
+                    image_url = entry.media_content[0]['url']
+                
+                # Method B: Enclosures (Podcasts/Some News)
+                elif 'media_thumbnail' in entry:
+                     image_url = entry.media_thumbnail[0]['url']
+                
+                # Method C: Parse Description for <img> tag (Common in old RSS)
+                elif 'summary' in entry and '<img' in entry.summary:
+                    import re
+                    match = re.search(r'src="([^"]+)"', entry.summary)
+                    if match:
+                        image_url = match.group(1)
+
+                # Date Formatting
+                published_str = "Recent"
+                try:
+                    if hasattr(entry, 'published_parsed'):
+                        dt = datetime.fromtimestamp(mktime(entry.published_parsed))
+                        published_str = dt.strftime("%Y-%m-%d %H:%M")
+                except:
+                    pass
+
+                all_news.append({
+                    'headline': entry.title,
+                    'link': entry.link,
+                    'summary': entry.summary.split('<')[0][:200] + "..." if 'summary' in entry else "", # Strip HTML tags roughly
+                    'date': published_str,
+                    'source': feed['source'],
+                    'source_class': feed['class'],
+                    'image': image_url
+                })
+                
+        except Exception as e:
+            print(f"❌ Failed to fetch {feed['source']}: {e}")
+
+    # 3. Sort & Save Cache
+    # Sort by date ? Difficult with mixed formats, leaving as aggregated list for now or randomize
+    # all_news.sort(key=lambda x: x['date'], reverse=True) 
+    
+    try:
+        with open(RSS_CACHE_FILE, 'w') as f:
+            json.dump(all_news, f)
+            print("💾 Saved News to Cache")
+    except Exception as e:
+        print(f"⚠️ Cache Write Error: {e}")
+        
+    return all_news
+
+# 3. CURRENT AFFAIRS PAGE (RSS)
 @app.route('/current_affairs')
 def current_affairs():
-    # Fetch all CA records
-    ca_ref = db.collection('current_affairs')
-    docs = ca_ref.stream()
-    
-    ca_list = []
-    for doc in docs:
-        data = doc.to_dict()
-        ca_list.append(data)
-    
-    # Sort by Date (Newest First) - assumes YYYY-MM-DD format
-    ca_list.sort(key=lambda x: x.get('date', ''), reverse=True)
-        
-    return render_template('current_affairs.html', news=ca_list)
+    news_data = get_rss_news()
+    return render_template('current_affairs.html', news=news_data)
 
 # 3. LOGIN PAGE
 @app.route('/login', methods=['GET', 'POST'])
