@@ -92,17 +92,29 @@ def fetch_bills():
             h1 = det_soup.find('h1')
             title = h1.get_text(strip=True) if h1 else list_title
             
-            # 2. Extract Category (Breadcrumbs)
-            category = "General"
-            # Try to find breadcrumb text
-            # Usually: Home / Bills & Acts / [Category] / ...
-            # Let's look for known categories in text if breadcrumb structure is hard
-            known_cats = ["Social", "Finance", "Labour", "Health", "Education", "Strategic", "Environment", "Infrastructure", "Legal"]
+            # Extract text content for rigorous searching
             text_content = det_soup.get_text(" ", strip=True)
-            for cat in known_cats:
-                if cat in text_content[:500]: # Check top of page
-                    category = cat
-                    break
+
+            # 2. Extract Category (Ministry)
+            category = "General"
+            
+            # Search for "Ministry:" in text content or specific tags
+            # Common pattern: "Ministry: Ministry of Finance"
+            
+            # Method A: Regex for "Ministry: ..."
+            min_match = re.search(r'Ministry\s*[:\-\s]\s*([A-Za-z\s&]+)', text_content, re.IGNORECASE)
+            if min_match:
+                 # Clean up the captured group
+                 raw_min = min_match.group(1).strip()
+                 # Take first 5 words max to avoid capturing long paragraphs
+                 category = " ".join(raw_min.split()[:6])
+            else:
+                # Method B: Fallback to known keywords if Ministry string not found
+                known_cats = ["Social", "Finance", "Labour", "Health", "Education", "Strategic", "Environment", "Infrastructure", "Legal"]
+                for cat in known_cats:
+                    if cat in text_content[:1000]: 
+                        category = cat
+                        break
             
             # 3. Extract Status & Date
             status = "Pending"
