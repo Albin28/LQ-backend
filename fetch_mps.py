@@ -15,17 +15,7 @@ VIP_MPS = [
     "amit-shah",
     "shashi-tharoor",
     "mahua-moitra",
-    "asaduddin-owaisi",
-    "supriya-sule",
-    "tejasvi-surya",
-    "nirmala-sitharaman", # Check slug validity later, assuming standard mostly
-    "rajnath-singh",
-    "smriti-zubin-irani",
-    "adhir-ranjan-chowdhury",
-    "dimple-yadav",
-    "hema-malini",
-    "kiren-rijiju",
-    "nitin-jairam-gadkari"
+    "asaduddin-owaisi"
 ]
 
 def fetch_mps():

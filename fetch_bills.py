@@ -67,7 +67,7 @@ def fetch_bills():
     print(f"🔍 Found {len(potential_links)} potential bill links.")
     
     bills_data = []
-    MAX_BILLS = 15
+    MAX_BILLS = 5
     count = 0
     
     for link_obj in potential_links:

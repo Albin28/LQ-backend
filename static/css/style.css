@@ -231,6 +231,10 @@ a {
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
+    z-index: 50;
+    position: relative;
+    opacity: 1 !important;
+    display: flex !important;
 }
 
 .search-input-glass,
