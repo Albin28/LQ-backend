@@ -15,6 +15,7 @@
         <span class="search-icon">🔍</span>
         <input type="text" id="searchInput" class="search-input-glass" placeholder="Search bills, keywords, or dates..."
             aria-label="Search bills">
+        
         <select id="categoryFilter" class="select-glass" aria-label="Filter by Category">
             <option value="all">All Categories</option>
             <option value="Education">Education</option>
@@ -24,6 +25,13 @@
             <option value="Technology">Technology</option>
             <option value="Environment">Environment</option>
         </select>
+        
+        <!-- NEW: Sort Dropdown -->
+        <select id="sortFilter" class="select-glass" aria-label="Sort Bills">
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+            <option value="status">Status</option>
+        </select>
     </div>
 </div>
 
@@ -32,7 +40,10 @@
     <div id="billsList" class="grid-news">
         {% if bills %}
         {% for bill in bills %}
-        <div class="glass-panel" data-category="{{ bill.category|default('General') }}">
+        <div class="glass-panel" 
+             data-category="{{ bill.category|default('General') }}"
+             data-date="{{ bill.date_introduced }}"
+             data-status="{{ bill.status }}">
 
             <div class="card-header-flex">
                 <span class="badge-glass badge-category">📂 {{ bill.category }}</span>
@@ -50,7 +61,8 @@
 
             <div class="card-footer-action">
                 {% if bill.file_path %}
-                <a href="/static/dataset/{{ bill.file_path }}" class="btn-glass btn-glass-primary btn-full-width"
+                <!-- FIXED: Download Route -->
+                <a href="/download/{{ bill.file_path }}" class="btn-glass btn-glass-primary btn-full-width"
                     download>
                     Download PDF ⬇️
                 </a>
@@ -70,57 +82,134 @@
         </div>
         {% endif %}
     </div>
+
+    <!-- NEW: Show More Button -->
+    <div class="text-center mt-8">
+        <button id="showMoreBtn" class="btn-glass" style="display: none;">Show More Bills</button>
+    </div>
 </div>
 
 <script>
-    // Animation Logic for Elements
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = 1;
-                entry.target.style.transform = 'translateY(0)';
-            }
-        });
-    });
-
-    document.querySelectorAll('.glass-panel').forEach((el, index) => {
-        el.style.opacity = 0;
-        el.style.transform = 'translateY(20px)';
-        el.style.transition = `all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) ${index * 0.1}s`; // Stagger effect
-        observer.observe(el);
-    });
-
-    // Search Logic
+    // Data State
+    const allCards = Array.from(document.querySelectorAll('.glass-panel'));
+    const container = document.getElementById('billsList');
+    const showMoreBtn = document.getElementById('showMoreBtn');
+    
+    // Inputs
     const searchInput = document.getElementById('searchInput');
     const categoryFilter = document.getElementById('categoryFilter');
-    const cards = document.querySelectorAll('.glass-panel');
+    const sortFilter = document.getElementById('sortFilter');
 
-    function filterBills() {
-        const term = searchInput.value.toLowerCase();
-        const category = categoryFilter.value;
+    // Config
+    let visibleCount = 5;
+    const LOAD_INCREMENT = 5;
+    let filteredCards = []; // Cards matching current search/filter
 
-        cards.forEach(card => {
-            const title = card.querySelector('.search-target').innerText.toLowerCase();
-            const cardCategory = card.getAttribute('data-category');
-
-            const matchesSearch = title.includes(term);
-            const matchesCategory = (category === 'all') || (cardCategory === category);
-
-            if (matchesSearch && matchesCategory) {
-                card.style.display = "block";
-                setTimeout(() => {
-                    card.style.opacity = 1;
-                    card.style.transform = 'translateY(0)';
-                }, 100);
-            } else {
-                card.style.display = "none";
-                card.style.opacity = 0;
-            }
+    // Initialize
+    function init() {
+        // Initial Sort (Newest First is default in HTML, but let's enforce)
+        applyFiltersAndSort(); 
+        
+        // Animation
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = 1;
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        });
+        
+        allCards.forEach(el => {
+            // Reset styles for JS control
+            el.style.opacity = 0;
+            el.style.transform = 'translateY(10px)';
+            el.style.transition = 'all 0.4s ease';
+            observer.observe(el);
         });
     }
 
-    searchInput.addEventListener('keyup', filterBills);
-    categoryFilter.addEventListener('change', filterBills);
+    function applyFiltersAndSort() {
+        const term = searchInput.value.toLowerCase();
+        const category = categoryFilter.value;
+        const sortMode = sortFilter.value;
+
+        // 1. FILTER
+        filteredCards = allCards.filter(card => {
+            const title = card.querySelector('.search-target').innerText.toLowerCase();
+            const cardCategory = card.getAttribute('data-category');
+            
+            const matchesSearch = title.includes(term);
+            const matchesCategory = (category === 'all') || (cardCategory === category);
+            
+            return matchesSearch && matchesCategory;
+        });
+
+        // 2. SORT
+        filteredCards.sort((a, b) => {
+            const dateA = new Date(a.getAttribute('data-date')).getTime() || 0;
+            const dateB = new Date(b.getAttribute('data-date')).getTime() || 0;
+            const statusA = a.getAttribute('data-status').toLowerCase();
+            const statusB = b.getAttribute('data-status').toLowerCase();
+
+            if (sortMode === 'date_desc') return dateB - dateA;
+            if (sortMode === 'date_asc') return dateA - dateB;
+            if (sortMode === 'status') return statusA.localeCompare(statusB);
+            return 0;
+        });
+
+        // 3. RENDER (With Limit)
+        renderCards();
+    }
+
+    function renderCards() {
+        // Clear container display (not content, just re-append in order)
+        container.innerHTML = '';
+        
+        const toShow = filteredCards.slice(0, visibleCount);
+        
+        if (toShow.length === 0) {
+            container.innerHTML = `
+                <div class="glass-panel text-center col-span-full">
+                    <h2>No Matching Bills</h2>
+                    <p class="text-muted">Try adjusting your filters.</p>
+                </div>
+            `;
+            showMoreBtn.style.display = 'none';
+            return;
+        }
+
+        toShow.forEach((card, index) => {
+            container.appendChild(card);
+            // Trigger animation
+            setTimeout(() => {
+                card.style.opacity = 1;
+                card.style.transform = 'translateY(0)';
+            }, index * 50);
+        });
+
+        // Handle Show More Button
+        if (filteredCards.length > visibleCount) {
+             showMoreBtn.style.display = 'inline-block';
+             showMoreBtn.innerText = `Show More (${filteredCards.length - visibleCount} remaining)`;
+        } else {
+             showMoreBtn.style.display = 'none';
+        }
+    }
+
+    // Event Listeners
+    searchInput.addEventListener('input', () => { visibleCount = 5; applyFiltersAndSort(); }); // Reset limit on search
+    categoryFilter.addEventListener('change', () => { visibleCount = 5; applyFiltersAndSort(); });
+    sortFilter.addEventListener('change', () => { applyFiltersAndSort(); });
+
+    showMoreBtn.addEventListener('click', () => {
+        visibleCount += LOAD_INCREMENT;
+        applyFiltersAndSort();
+    });
+
+    // Run
+    init();
+
 </script>
 
 {% endblock %}

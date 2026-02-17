@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash, send_from_directory
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -103,7 +103,11 @@ def mps_dashboard():
                            states=sorted(list(states)))
 
 # --- RSS FEED SETUP ---
-import feedparser
+try:
+    import feedparser
+except ImportError:
+    feedparser = None
+    print("⚠️ Warning: feedparser module not found or incompatible (missing cgi). RSS feeds disabled.")
 import time
 from time import mktime
 from datetime import datetime
@@ -136,6 +140,10 @@ def get_rss_news():
             print(f"⚠️ Cache Read Error: {e}")
 
     # 2. Fetch from Feeds
+    if not feedparser:
+        print("❌ Feedparser not available. Skipping RSS fetch.")
+        return []
+
     print("🌍 Fetching News from RSS Feeds...")
     all_news = []
     
@@ -382,6 +390,15 @@ def add_mp():
 def get_bills_json():
     docs = db.collection('bills').stream()
     return jsonify([doc.to_dict() for doc in docs])
+
+@app.route('/download/<path:filename>')
+def download_bill(filename):
+    # Security: Ensure we only serve from static/dataset
+    directory = os.path.join(app.root_path, 'static', 'dataset')
+    try:
+        return send_from_directory(directory, filename, as_attachment=True)
+    except FileNotFoundError:
+        return "File not found", 404
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

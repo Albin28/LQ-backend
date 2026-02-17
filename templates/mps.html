@@ -3,16 +3,32 @@
 {% block content %}
 
 <div class="container section-padding-top">
-    <div class="text-center mb-12">
+    <div class="text-center mb-8">
         <h2 class="text-kinetic">Representatives</h2>
         <p class="text-muted text-kinetic animate-delay-1 text-lg">Track attendance, participation,
             and performance.</p>
     </div>
 
+    <!-- Controls -->
+    <div class="controls-glass text-kinetic animate-delay-2 mb-8"
+        style="max-width: 800px; margin-left: auto; margin-right: auto;">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="mpSearchInput" class="search-input-glass" placeholder="Search MPs, Constituency..."
+            aria-label="Search MPs">
+
+        <select id="mpSortFilter" class="select-glass" aria-label="Sort MPs">
+            <option value="name_asc">Name (A-Z)</option>
+            <option value="attendance_desc">Attendance (High-Low)</option>
+            <option value="attendance_asc">Attendance (Low-High)</option>
+            <option value="questions_desc">Questions (Most-Least)</option>
+        </select>
+    </div>
+
     <!-- MP Grid -->
-    <div class="grid-mps">
+    <div id="mpsList" class="grid-mps">
         {% for mp in mps %}
-        <div class="glass-panel mp-card-inner">
+        <div class="glass-panel mp-card-inner" data-name="{{ mp.name }}" data-attendance="{{ mp.attendance_pct }}"
+            data-questions="{{ mp.questions }}">
 
             <div class="mp-header-flex">
                 <!-- Avatar Circle -->
@@ -22,7 +38,7 @@
 
                 <div>
                     <h3 class="mp-name-header">{{ mp.name }}</h3>
-                    <div class="text-sm text-muted">{{ mp.constituency }}, {{ mp.state }}</div>
+                    <div class="text-sm text-muted search-target-sub">{{ mp.constituency }}, {{ mp.state }}</div>
                 </div>
             </div>
 
@@ -50,15 +66,106 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Show More Button -->
+    <div class="text-center mt-8">
+        <button id="showMoreMpBtn" class="btn-glass" style="display: none;">Show More MPs</button>
+    </div>
 </div>
 
 <script>
-    // Staggered Entry Animation
-    document.querySelectorAll('.glass-panel').forEach((el, index) => {
-        el.style.opacity = 0;
-        el.style.transform = 'translateY(20px)';
-        el.style.animation = `fadeUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards ${index * 0.05}s`;
+    // Data State
+    const allMpCards = Array.from(document.querySelectorAll('.glass-panel'));
+    const mpContainer = document.getElementById('mpsList');
+    const showMoreMpBtn = document.getElementById('showMoreMpBtn');
+
+    // Inputs
+    const mpSearchInput = document.getElementById('mpSearchInput');
+    const mpSortFilter = document.getElementById('mpSortFilter');
+
+    // Config
+    let visibleMpCount = 5;
+    const LOAD_INCREMENT = 5;
+    let filteredMpCards = [];
+
+    function initMps() {
+        applyMpFilters();
+    }
+
+    function applyMpFilters() {
+        const term = mpSearchInput.value.toLowerCase();
+        const sortMode = mpSortFilter.value;
+
+        // 1. FILTER
+        filteredMpCards = allMpCards.filter(card => {
+            const name = card.getAttribute('data-name').toLowerCase();
+            const sub = card.querySelector('.search-target-sub').innerText.toLowerCase();
+
+            return name.includes(term) || sub.includes(term);
+        });
+
+        // 2. SORT
+        filteredMpCards.sort((a, b) => {
+            const nameA = a.getAttribute('data-name').toLowerCase();
+            const nameB = b.getAttribute('data-name').toLowerCase();
+            const attA = parseFloat(a.getAttribute('data-attendance')) || 0;
+            const attB = parseFloat(b.getAttribute('data-attendance')) || 0;
+            const qA = parseInt(a.getAttribute('data-questions')) || 0;
+            const qB = parseInt(b.getAttribute('data-questions')) || 0;
+
+            if (sortMode === 'name_asc') return nameA.localeCompare(nameB);
+            if (sortMode === 'attendance_desc') return attB - attA;
+            if (sortMode === 'attendance_asc') return attA - attB;
+            if (sortMode === 'questions_desc') return qB - qA;
+            return 0;
+        });
+
+        // 3. RENDER
+        renderMpCards();
+    }
+
+    function renderMpCards() {
+        mpContainer.innerHTML = '';
+        const toShow = filteredMpCards.slice(0, visibleMpCount);
+
+        if (toShow.length === 0) {
+            mpContainer.innerHTML = `
+                <div class="glass-panel text-center col-span-full">
+                    <h2>No Matching Representatives</h2>
+                    <p class="text-muted">Try adjusting your search.</p>
+                </div>
+            `;
+            showMoreMpBtn.style.display = 'none';
+            return;
+        }
+
+        toShow.forEach((card, index) => {
+            mpContainer.appendChild(card);
+            // Animation
+            card.style.opacity = 0;
+            card.style.transform = 'translateY(10px)';
+            card.style.animation = `fadeUp 0.5s ease forwards ${index * 0.05}s`;
+        });
+
+        if (filteredMpCards.length > visibleMpCount) {
+            showMoreMpBtn.style.display = 'inline-block';
+            showMoreMpBtn.innerText = `Show More MPs (${filteredMpCards.length - visibleMpCount} remaining)`;
+        } else {
+            showMoreMpBtn.style.display = 'none';
+        }
+    }
+
+    // Listeners
+    mpSearchInput.addEventListener('input', () => { visibleMpCount = 5; applyMpFilters(); });
+    mpSortFilter.addEventListener('change', () => { applyMpFilters(); });
+
+    showMoreMpBtn.addEventListener('click', () => {
+        visibleMpCount += LOAD_INCREMENT;
+        applyMpFilters();
     });
+
+    // Run
+    initMps();
 </script>
 
 {% endblock %}

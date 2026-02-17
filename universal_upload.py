@@ -130,8 +130,15 @@ def upload_bills():
 
         # 3. PREPARE NEW DATA
         clean_date_val = clean_date(get_col(row, ['Date Introduced', 'Date', 'Date_Introduced']))
-        real_filename = find_pdf_on_disk(dataset_folder, clean_id)
+        # Try to use the file path from CSV first
+        csv_file_val = get_col(row, ['file_path', 'PDF', 'File'], '')
+        real_filename = ""
         
+        if csv_file_val and os.path.exists(os.path.join(dataset_folder, csv_file_val)):
+             real_filename = csv_file_val
+        else:
+             real_filename = find_pdf_on_disk(dataset_folder, clean_id)
+
         if real_filename:
             print(f"   🔹 MATCH: ID '{clean_id}' -> PDF '{real_filename}'")
         else:
