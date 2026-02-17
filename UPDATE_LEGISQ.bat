@@ -1,59 +1,34 @@
 @echo off
-TITLE LegisQ Debug Mode
-COLOR 0A
+cd /d "%~dp0"
 
-:: --- STEP 1: NAVIGATION ---
-echo [DEBUG] Navigating to Project Folder...
-E:
-cd "E:\legisq"
-echo Current Directory: %CD%
+echo ==========================================
+echo    LEGISQ AUTOMATED UPDATE SYSTEM
+echo ==========================================
 
-:: --- STEP 2: ACTIVATE VENV ---
-echo.
-echo [DEBUG] Checking for Virtual Environment...
-if exist "venv\Scripts\activate.bat" (
-    echo [SYSTEM] Activating venv...
-    call venv\Scripts\activate.bat
+:: Activate Virtual Environment
+if exist venv\Scripts\activate (
+    call venv\Scripts\activate
 ) else (
-    echo [WARNING] venv not found. Using global python.
+    echo ⚠️ Venv not found, trying system python...
 )
 
-:: --- STEP 3: INSTALL LIBRARIES (Just in case) ---
-echo.
-echo [DEBUG] Ensuring Libraries are Installed...
-:: We try to install them silently. If they exist, this skips instantly.
-pip install firebase-admin pandas openpyxl
+:: Run the Python Pipeline
+python run_pipeline.py
 
-:: --- STEP 4: UPDATE DATABASE ---
-echo.
-echo [STEP 1/3] Uploading Excel Data...
-python universal_upload.py
-IF %ERRORLEVEL% NEQ 0 (
-    COLOR 0C
-    echo.
-    echo ❌ CRITICAL ERROR: Python script failed!
-    echo Read the error message above (Traceback).
-    PAUSE
-    goto :EOF
+:: Check if python script succeeded (simple check)
+if %ERRORLEVEL% NEQ 0 (
+    echo ❌ Pipeline execution failed!
+    pause
+    exit /b %ERRORLEVEL%
 )
-echo ✅ Database Synced.
 
-:: --- STEP 5: FORCE PDFs ---
+:: Git Operations
 echo.
-echo [STEP 2/3] Locking PDFs...
+echo --- GITHUB SYNC ---
 git add .
-git add -f static/dataset/*.pdf
-echo ✅ PDFs Locked.
-
-:: --- STEP 6: DEPLOY ---
-echo.
-echo [STEP 3/3] Pushing to Vercel...
-git commit -m "Auto-Update via Debug Script"
+git commit -m "Auto-update Data: %date% %time%"
 git push origin main
-echo ✅ Done.
 
 echo.
-echo ==================================================
-echo      SCRIPT FINISHED CORRECTLY
-echo ==================================================
-PAUSE
+echo ✅ ALL DONE!
+pause
