@@ -127,21 +127,40 @@ def fetch_bills():
             pdf_filename = ""
             pdf_link = None
             
+            # Robust Search: Iterate all links and check text + href
+            all_links = det_soup.find_all('a', href=True)
+            
+            # Priority 1: High confidence text match
             target_texts = ['Bill Text', 'Text of the Bill', 'As Introduced', 'As Passed', 'Ordinance Text']
-            for t in target_texts:
-                pdf_link = det_soup.find('a', string=re.compile(t, re.IGNORECASE))
+            
+            for a in all_links:
+                link_text = a.get_text(" ", strip=True).lower()
+                href = a['href'].lower()
+                
+                # Check for explicit keywords
+                for t in target_texts:
+                    if t.lower() in link_text:
+                        pdf_link = a
+                        print(f"      🔹 Found PDF Link by Text: '{t}' -> {href[:30]}...")
+                        break
                 if pdf_link: break
             
+            # Priority 2: Fallback to any PDF with "bill" in text name if not found above
             if not pdf_link:
-                all_links = det_soup.find_all('a', href=True)
                 for a in all_links:
-                    if a['href'].lower().endswith('.pdf') and ('bill' in a.get_text().lower() or 'text' in a.get_text().lower()):
+                    link_text = a.get_text(" ", strip=True).lower()
+                    href = a['href'].lower()
+                    if href.endswith('.pdf') and ('bill' in link_text or 'text' in link_text):
                         pdf_link = a
+                        print(f"      🔹 Found PDF Link by Content: {href[:30]}...")
                         break
-            
+
             if pdf_link:
                 pdf_url = pdf_link['href']
+                # Safer URL construction
                 if not pdf_url.startswith('http'):
+                    if not pdf_url.startswith('/'):
+                        pdf_url = '/' + pdf_url
                     pdf_url = BASE_URL + pdf_url
                 
                 clean_name = sanitize_filename(title) + ".pdf"
@@ -154,10 +173,14 @@ def fetch_bills():
                              for chunk in r.iter_content(chunk_size=8192):
                                  f.write(chunk)
                     pdf_filename = clean_name
-                    print(f"      ✅ PDF Saved")
+                    print(f"      ✅ PDF Saved: {clean_name}")
                 except Exception as e:
                     print(f"      ⚠️ PDF Download Error: {e}")
             else:
+                print("      ⚠️ No PDF found. Available Links (Top 5):")
+                # Debug dump for user to see
+                for a in all_links[:5]:
+                     print(f"         - {a.get_text(strip=True)}: {a['href']}")
                 print("      ⚠️ No PDF found")
 
             # Add entry
