@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import os
 import re
+import time
 
 # Database paths
 DATASET_DIR = "static/dataset"
@@ -13,159 +14,178 @@ BASE_URL = "https://prsindia.org"
 TRACK_URL = "https://prsindia.org/billtrack"
 
 def sanitize_filename(text):
-    """
-    Sanitizes title to be a safe filename.
-    e.g., "The Telecommunications Bill, 2023" -> "The_Telecommunications_Bill_2023"
-    """
     clean = re.sub(r'[^\w\s-]', '', text).strip()
     return re.sub(r'[-\s]+', '_', clean)
 
 def fetch_bills():
     print(f"📡 Connecting to {TRACK_URL}...")
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-    response = requests.get(TRACK_URL, headers=headers)
-    
-    if response.status_code != 200:
-        print(f"❌ Failed to fetch page. Status: {response.status_code}")
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    try:
+        response = requests.get(TRACK_URL, headers=headers)
+        if response.status_code != 200:
+            print(f"❌ Failed to fetch page. Status: {response.status_code}")
+            return
+    except Exception as e:
+        print(f"❌ Connection error: {e}")
         return
 
     soup = BeautifulSoup(response.content, 'html.parser')
     
-    # Locate the bills table (Look for the main table)
-    # The structure usually has a table with class 'views-table' or simple table tags
-    # We'll take the first table we find that looks like legislative data.
+    # Strategy: Find all links to bills
+    # Bill links usually start with /billtrack/ and are not system links
+    # We filter for links that look like bill slugs (exclude known system paths if any)
     
-    # Try finding the specific view content
-    # Based on general PRS structure, tables are often in div.view-content
+    potential_links = []
+    seen_urls = set()
+    
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        # Normalize
+        if not href.startswith('http'):
+            if href.startswith('/'):
+                href = BASE_URL + href
+            else:
+                continue # Skip relative without slash or other protocols
+
+        # Filter criteria
+        if '/billtrack/' in href:
+            # Exclude non-bill pages if possible
+            # Common non-bill paths in billtrack:
+            # - ?page=
+            # - #
+            # - /billtrack (itself)
+            if href == TRACK_URL or '?' in href or '#' in href:
+                continue
+            
+            if href not in seen_urls:
+                seen_urls.add(href)
+                # Use text length as a heuristic? Bill titles are usually long.
+                text = a.get_text(strip=True)
+                if len(text) > 10: 
+                    potential_links.append({"url": href, "title": text})
+
+    print(f"🔍 Found {len(potential_links)} potential bill links.")
     
     bills_data = []
-    
-    # Finding all rows
-    # This selector might need adjustment if PRS changes layout, but iterating rows usually works.
-    rows = soup.find_all('tr')
-    
-    count = 0
     MAX_BILLS = 15
+    count = 0
     
-    print("🔍 Parsing Bills...")
-    
-    for row in rows:
+    for link_obj in potential_links:
         if count >= MAX_BILLS: break
         
-        cols = row.find_all('td')
-        if not cols: continue # Skip header or empty rows
+        url = link_obj['url']
+        list_title = link_obj['title']
         
-        # PRS Bill Track Table Columns (Approximate):
-        # Title | Category | Introduced | Status
-        
-        # We need to be careful about column indices. 
-        # Usually: Title (link) is in first or second col.
-        
-        link_tag = row.find('a')
-        if not link_tag: continue
-        
-        title = link_tag.get_text(strip=True)
-        detail_url = BASE_URL + link_tag['href']
-        
-        # Iterate cols to find date/category/status
-        # We will grab all text and guess based on content or position.
-        # Assuming standard layout: Title (0), Category (1), Introduced Date (2), House (3), Status (4)
-        
-        category = "General"
-        date_intro = ""
-        status = "Pending"
-        
-        if len(cols) > 2:
-            # Try to identify category
-            # If col text is short and looks like "Social", "Finance", etc.
-            category = cols[1].get_text(strip=True)
-            
-            # Try to identify date (look for digits and month names)
-            date_text = cols[2].get_text(strip=True)
-            if re.search(r'\d{4}', date_text):
-                date_intro = date_text
-            
-            # Status
-            status_text = cols[-1].get_text(strip=True)
-            if status_text:
-                status = status_text
+        # Filter: Title must look like a bill
+        if not any(x in list_title.lower() for x in ['bill', 'code', 'act', 'vidheyak', 'sanhita', 'ordinance']):
+            continue
 
-        # ---------------------------------------------------------
-        # 🟢 DEEP DIVE: VISIT DETAIL PAGE FOR PDF
-        # ---------------------------------------------------------
-        pdf_filename = ""
+        print(f"   PLEASE WAIT: Processing '{list_title[:30]}...'")
+        
         try:
-            print(f"   PLEASE WAIT: Fetching details for '{title[:30]}...'")
-            det_resp = requests.get(detail_url, headers=headers)
-            if det_resp.status_code == 200:
-                det_soup = BeautifulSoup(det_resp.content, 'html.parser')
-                
-                # Find Link with 'Bill Text' or 'Text of the Bill'
-                # Often it's a file attachment
-                
-                pdf_link = None
-                
-                # Strategy 1: Look for specific text
-                target_texts = ['Bill Text', 'Text of the Bill', 'As Introduced', 'As Passed']
-                for t in target_texts:
-                    pdf_link = det_soup.find('a', string=re.compile(t, re.IGNORECASE))
-                    if pdf_link: break
-                
-                # Strategy 2: Look for any PDF link in a "downloads" section
-                if not pdf_link:
-                    # Generic search for pdfs
-                    all_links = det_soup.find_all('a', href=True)
-                    for a in all_links:
-                        if a['href'].lower().endswith('.pdf') and 'bill' in a.get_text().lower():
-                            pdf_link = a
-                            break
+            det_resp = requests.get(url, headers=headers)
+            if det_resp.status_code != 200: continue
+            
+            det_soup = BeautifulSoup(det_resp.content, 'html.parser')
+            
+            # 1. Extract Title (h1 often has it)
+            h1 = det_soup.find('h1')
+            title = h1.get_text(strip=True) if h1 else list_title
+            
+            # 2. Extract Category (Breadcrumbs)
+            category = "General"
+            # Try to find breadcrumb text
+            # Usually: Home / Bills & Acts / [Category] / ...
+            # Let's look for known categories in text if breadcrumb structure is hard
+            known_cats = ["Social", "Finance", "Labour", "Health", "Education", "Strategic", "Environment", "Infrastructure", "Legal"]
+            text_content = det_soup.get_text(" ", strip=True)
+            for cat in known_cats:
+                if cat in text_content[:500]: # Check top of page
+                    category = cat
+                    break
+            
+            # 3. Extract Status & Date
+            status = "Pending"
+            # Simple keyword search in text content
+            if "Passed by both Houses" in text_content: status = "Passed"
+            elif "Assented" in text_content: status = "Act"
+            elif "Withdrawn" in text_content: status = "Withdrawn"
+            elif "Passed" in text_content: status = "Passed" # Fallback
+            
+            # Date (Look for "Introduced ... [Date]")
+            date_intro = ""
+            # Regex to capture: "Introduced" ... (Date like "Dec 18, 2023")
+            date_match = re.search(r'Introduced.*?\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})', text_content, re.IGNORECASE)
+            if date_match:
+                date_intro = date_match.group(1) # Capture just the date part
+            else:
+                 # Try finding just a date in the "Introduced" row if it exists as a table
+                 # But text search is safer fallback
+                 pass
 
-                if pdf_link:
-                    pdf_url = pdf_link['href']
-                    if not pdf_url.startswith('http'):
-                        pdf_url = BASE_URL + pdf_url
-                    
-                    # Download
-                    clean_name = sanitize_filename(title) + ".pdf"
-                    save_path = os.path.join(DATASET_DIR, clean_name)
-                    
+            # 4. Find PDF
+            pdf_filename = ""
+            pdf_link = None
+            
+            target_texts = ['Bill Text', 'Text of the Bill', 'As Introduced', 'As Passed', 'Ordinance Text']
+            for t in target_texts:
+                pdf_link = det_soup.find('a', string=re.compile(t, re.IGNORECASE))
+                if pdf_link: break
+            
+            if not pdf_link:
+                all_links = det_soup.find_all('a', href=True)
+                for a in all_links:
+                    if a['href'].lower().endswith('.pdf') and ('bill' in a.get_text().lower() or 'text' in a.get_text().lower()):
+                        pdf_link = a
+                        break
+            
+            if pdf_link:
+                pdf_url = pdf_link['href']
+                if not pdf_url.startswith('http'):
+                    pdf_url = BASE_URL + pdf_url
+                
+                clean_name = sanitize_filename(title) + ".pdf"
+                save_path = os.path.join(DATASET_DIR, clean_name)
+                
+                try:
                     with requests.get(pdf_url, stream=True) as r:
                          r.raise_for_status()
                          with open(save_path, 'wb') as f:
                              for chunk in r.iter_content(chunk_size=8192):
                                  f.write(chunk)
-                    
                     pdf_filename = clean_name
-                    print(f"      ✅ Downloaded: {clean_name}")
-                else:
-                    print("      ⚠️ No PDF found.")
+                    print(f"      ✅ PDF Saved")
+                except Exception as e:
+                    print(f"      ⚠️ PDF Download Error: {e}")
+            else:
+                print("      ⚠️ No PDF found")
+
+            # Add entry
+            bills_data.append({
+                "Bill_id": f"Bill_{sanitize_filename(title)[:50]}",
+                "Title": title,
+                "Date Introduced": date_intro,
+                "Category": category,
+                "Status": status,
+                "Summary": f"Official bill regarding {title}.",
+                "file_path": pdf_filename
+            })
+            count += 1
             
         except Exception as e:
-            print(f"      ❌ Error fetching detail: {e}")
+            print(f"      ❌ Error parsing detail: {e}")
 
-        # Add to list
-        bill_entry = {
-            "Bill_id": f"Bill_{sanitize_filename(title)[:50]}", # Create a slug ID
-            "Title": title,
-            "Date Introduced": date_intro,
-            "Category": category,
-            "Status": status,
-            "Summary": f"Official bill regarding {title}.",
-            "file_path": pdf_filename
-        }
-        bills_data.append(bill_entry)
-        count += 1
-
-    # Save to CSV
+    # Save
     if bills_data:
         df = pd.DataFrame(bills_data)
         df.to_csv(METADATA_FILE, index=False)
-        print(f"\n🎉 Successfully saved {len(bills_data)} bills to {METADATA_FILE}")
+        print(f"\n🎉 Saved {len(bills_data)} bills to {METADATA_FILE}")
     else:
-        print("\n⚠️ No bills found or parsed.")
+        print("\n⚠️ No bill data extracted.")
 
 def run():
     fetch_bills()
 
 if __name__ == "__main__":
     run()
+
