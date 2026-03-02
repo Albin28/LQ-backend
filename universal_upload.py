@@ -1,5 +1,5 @@
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, storage
 import pandas as pd
 import os
 import re
@@ -16,12 +16,16 @@ else:
     exit()
 
 try:
-    firebase_admin.initialize_app(cred)
+    firebase_admin.initialize_app(cred, {
+        'storageBucket': 'legis-40c06.appspot.com'
+    })
     db = firestore.client()
-    print("✅ Connected to Firebase")
+    bucket = storage.bucket()
+    print("✅ Connected to Firebase & Storage")
 except ValueError:
     print("⚠️ Firebase app already initialized")
     db = firestore.client()
+    bucket = storage.bucket()
 
 
 # ==========================================
@@ -103,6 +107,24 @@ def clean_date(raw_date):
 # 3. UPLOAD ENGINES
 # ==========================================
 
+from urllib.parse import quote
+
+def upload_pdf_to_storage(local_path, filename):
+    """
+    Uploads a local PDF file to Firebase Storage and returns the public download URL.
+    """
+    try:
+        blob = bucket.blob(f"bills/{filename}")
+        blob.upload_from_filename(local_path)
+        blob.make_public()
+        print(f"   ☁️ Uploaded to Storage: bills/{filename}")
+        return blob.public_url
+    except Exception as e:
+        print(f"   ❌ Storage Upload Error: {e}")
+        # Fallback to Firebase Storage URL format if make_public fails (common with strict IAM rules)
+        safe_name = quote(f"bills/{filename}", safe="")
+        return f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{safe_name}?alt=media"
+
 def upload_bills():
     print("\n--- 🚀 1. BILLS UPLOAD (Safe Mode) ---")
     file_path = find_data_file("bills_metadata.xlsx")
@@ -133,24 +155,36 @@ def upload_bills():
         # Try to use the file path from CSV first
         csv_file_val = get_col(row, ['file_path', 'PDF', 'File'], '')
         real_filename = ""
+        local_pdf_path = ""
         
         if csv_file_val and os.path.exists(os.path.join(dataset_folder, csv_file_val)):
              real_filename = csv_file_val
+             local_pdf_path = os.path.join(dataset_folder, csv_file_val)
         else:
              real_filename = find_pdf_on_disk(dataset_folder, clean_id)
+             if real_filename:
+                 local_pdf_path = os.path.join(dataset_folder, real_filename)
 
-        if real_filename:
+        final_file_url = ""
+        if local_pdf_path:
             print(f"   🔹 MATCH: ID '{clean_id}' -> PDF '{real_filename}'")
+            # Upload to Firebase Storage!
+            final_file_url = upload_pdf_to_storage(local_pdf_path, real_filename)
         else:
             print(f"   🔸 MISSING PDF: For ID '{clean_id}'")
+            # See if we already had a file path in DB
+            if is_update:
+                existing_doc = doc_ref.get().to_dict()
+                final_file_url = existing_doc.get('file_path', '')
 
         bill_data = {
             'title': get_col(row, ['Title', 'Bill Title']),
             'category': str(get_col(row, ['Category', 'Type'], 'General')).strip(),
             'date_introduced': clean_date_val,
             'status': get_col(row, ['Status'], 'Pending'), # Initial status only
-            'summary': get_col(row, ['Summary', 'Description'], 'No summary provided.'),
-            'file_path': real_filename
+            'house': get_col(row, ['House'], 'Lok Sabha'), # Extracted from the user's Excel sheet
+            'summary': get_col(row, ['Summary', 'Description'], ''),
+            'file_path': final_file_url
         }
         
         doc_ref.set(bill_data, merge=True)
@@ -160,7 +194,7 @@ def upload_bills():
             print(f"   ✅ ADDED: {clean_id}")
         count_added += 1
     
-    print(f"📊 Bills Report: {count_added} Added, {count_skipped} Skipped.")
+    print(f"📊 Bills Report: {count_added} Processed.")
 
 
 def upload_mps():

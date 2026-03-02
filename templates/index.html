@@ -59,10 +59,15 @@
 
             <div class="card-footer-action">
                 {% if bill.file_path %}
-                <!-- FIXED: Download Route -->
+                {% if 'http' in bill.file_path %}
+                <a href="{{ bill.file_path }}" target="_blank" class="btn-glass btn-glass-primary btn-full-width">
+                    Download PDF ⬇️
+                </a>
+                {% else %}
                 <a href="/download/{{ bill.file_path }}" class="btn-glass btn-glass-primary btn-full-width" download>
                     Download PDF ⬇️
                 </a>
+                {% endif %}
                 {% else %}
                 <button class="btn-glass btn-full-width btn-disabled" disabled>
                     PDF Unavailable

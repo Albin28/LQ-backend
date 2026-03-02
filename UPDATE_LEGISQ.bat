@@ -13,7 +13,7 @@ if exist venv\Scripts\activate (
 )
 
 :: Run the Python Pipeline
-python run_pipeline.py
+python universal_upload.py
 
 :: Check if python script succeeded (simple check)
 if %ERRORLEVEL% NEQ 0 (
