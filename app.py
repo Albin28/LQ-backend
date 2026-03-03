@@ -2,49 +2,27 @@ import os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash, send_from_directory
 import json
 import firebase_admin
-from firebase_admin import credentials, firestore, storage
+from firebase_admin import credentials, firestore
 
 # --- CONFIGURATION ---
 from dotenv import load_dotenv
-load_dotenv() # Load .env file
+load_dotenv()
 
 app = Flask(__name__)
-# Enable WhiteNoise for static file serving on Vercel
-from whitenoise import WhiteNoise
-app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/')
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "legisq_default_dev_key") 
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "legisq_local_dev_key")
 
-# --- FIREBASE SETUP ---
-# Global DB variable
+# --- FIREBASE SETUP (Local only - uses serviceAccountKey.json) ---
 db = None
-db_error = None
 
 try:
     if not firebase_admin._apps:
-        # 1. Try Env Var (Vercel Production)
-        if os.getenv("FIREBASE_CREDENTIALS"):
-            try:
-                cred_dict = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
-                cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred, {'storageBucket': 'legis-40c06.appspot.com'})
-            except Exception as e:
-                db_error = f"Env Var Error: {e}"
-        
-        # 2. Try Local File (Dev)
-        elif os.path.exists("serviceAccountKey.json"):
-            cred = credentials.Certificate("serviceAccountKey.json")
-            firebase_admin.initialize_app(cred, {'storageBucket': 'legis-40c06.appspot.com'})
-        else:
-            db_error = "No Credentials Found (Env Var or File)"
-
-    if not db_error:
-        try:
-            db = firestore.client()
-        except Exception as e:
-            db_error = f"Firestore Client Init Error: {e}"
-
+        cred = credentials.Certificate("serviceAccountKey.json")
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("✅ Firebase connected")
 except Exception as e:
-    db_error = f"Unexpected Init Error: {e}"
+    print(f"❌ Firebase error: {e}")
+
 
 # --- PUBLIC ROUTES ---
 
@@ -52,7 +30,7 @@ except Exception as e:
 @app.route('/')
 def home():
     if db is None:
-        return f"<h1>Database Connection Failed</h1><p>Error Detail: {db_error}</p><p>Please check your Vercel Environment Variables.</p>"
+        return "<h1>Database not connected</h1><p>Check serviceAccountKey.json and restart the app.</p>"
 
     # Fetch real bills from Firebase
     bills_ref = db.collection('bills')
@@ -330,20 +308,9 @@ def add_bill():
             if file and file.filename != '':
                 # FORCE filename to match ID (Terminology Rule)
                 filename = f"{safe_id}.pdf"
-                
-                # UPLOAD TO FIREBASE STORAGE INSTEAD OF LOCAL DISK
-                bucket = storage.bucket()
-                blob = bucket.blob(f"bills/{filename}")
-                blob.upload_from_file(file.stream, content_type=file.content_type)
-                
-                from urllib.parse import quote
-                try:
-                    blob.make_public()
-                    file_path = blob.public_url
-                except Exception as e:
-                    print(f"Storage Upload Public Error: {e}")
-                    safe_name = quote(f"bills/{filename}", safe="")
-                    file_path = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{safe_name}?alt=media"
+                save_path = os.path.join("static/dataset", filename)
+                file.save(save_path)
+                file_path = filename
 
         bill_data = {
             'title': title,

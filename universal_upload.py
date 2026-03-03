@@ -1,8 +1,9 @@
 import firebase_admin
-from firebase_admin import credentials, firestore, storage
+from firebase_admin import credentials, firestore
 import pandas as pd
 import os
 import re
+from urllib.parse import quote
 
 # ==========================================
 # 1. SETUP FIREBASE
@@ -16,16 +17,12 @@ else:
     exit()
 
 try:
-    firebase_admin.initialize_app(cred, {
-        'storageBucket': 'legis-40c06.appspot.com'
-    })
+    firebase_admin.initialize_app(cred)
     db = firestore.client()
-    bucket = storage.bucket()
-    print("✅ Connected to Firebase & Storage")
+    print("✅ Connected to Firebase")
 except ValueError:
     print("⚠️ Firebase app already initialized")
     db = firestore.client()
-    bucket = storage.bucket()
 
 
 # ==========================================
@@ -171,13 +168,12 @@ def upload_bills():
                  local_pdf_path = os.path.join(dataset_folder, real_filename)
 
         final_file_url = ""
-        if local_pdf_path:
+        if real_filename:
             print(f"   🔹 MATCH: ID '{clean_id}' -> PDF '{real_filename}'")
-            # Upload to Firebase Storage!
-            final_file_url = upload_pdf_to_storage(local_pdf_path, real_filename)
+            # Store the plain filename — served locally via /download/ route
+            final_file_url = real_filename
         else:
             print(f"   🔸 MISSING PDF: For ID '{clean_id}'")
-            # See if we already had a file path in DB
             if is_update:
                 existing_doc = doc_ref.get().to_dict()
                 final_file_url = existing_doc.get('file_path', '')
