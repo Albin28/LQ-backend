@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash, send_from_directory
 import json
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, storage
 
 # --- CONFIGURATION ---
 from dotenv import load_dotenv
@@ -26,14 +26,14 @@ try:
             try:
                 cred_dict = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
                 cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred)
+                firebase_admin.initialize_app(cred, {'storageBucket': 'legis-40c06.appspot.com'})
             except Exception as e:
                 db_error = f"Env Var Error: {e}"
         
         # 2. Try Local File (Dev)
         elif os.path.exists("serviceAccountKey.json"):
             cred = credentials.Certificate("serviceAccountKey.json")
-            firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred, {'storageBucket': 'legis-40c06.appspot.com'})
         else:
             db_error = "No Credentials Found (Env Var or File)"
 
@@ -330,9 +330,20 @@ def add_bill():
             if file and file.filename != '':
                 # FORCE filename to match ID (Terminology Rule)
                 filename = f"{safe_id}.pdf"
-                save_path = os.path.join("static/dataset", filename)
-                file.save(save_path)
-                file_path = filename
+                
+                # UPLOAD TO FIREBASE STORAGE INSTEAD OF LOCAL DISK
+                bucket = storage.bucket()
+                blob = bucket.blob(f"bills/{filename}")
+                blob.upload_from_file(file.stream, content_type=file.content_type)
+                
+                from urllib.parse import quote
+                try:
+                    blob.make_public()
+                    file_path = blob.public_url
+                except Exception as e:
+                    print(f"Storage Upload Public Error: {e}")
+                    safe_name = quote(f"bills/{filename}", safe="")
+                    file_path = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{safe_name}?alt=media"
 
         bill_data = {
             'title': title,
