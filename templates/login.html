@@ -1,61 +1,103 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <title>Admin Login - LegisQ</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;600&display=swap"
-        rel="stylesheet">
-</head>
+{% block title %}Admin Login - LegisQ{% endblock %}
 
-<body class="aurora-bg">
-
-    <div class="login-refactored">
-        <div class="card-gloss">
-            <div class="mb-8">
-                <span class="emoji-lg">🏛️</span>
+{% block content %}
+<div class="container">
+    <div class="login-container">
+        <div class="glass-panel login-panel">
+            <div class="login-header">
+                <h1 class="hero-title">Admin Access</h1>
+                <p class="hero-subtitle">Enter your credentials to manage the database.</p>
             </div>
 
-            <h2 class="title-login">Welcome Back</h2>
-            <p class="text-muted mb-8">Enter your credentials to access the secure dashboard.</p>
-
-            {% with messages = get_flashed_messages() %}
-            {% if messages %}
-            {% for message in messages %}
-            <div class="badge status-rejected status-badge-block">
-                ⚠️ {{ message }}
-            </div>
-            {% endfor %}
-            {% endif %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
             {% endwith %}
 
-            <form method="POST" action="/login">
-                <div class="form-group text-left">
-                    <label for="username" class="sr-only">Username</label>
-                    <input type="text" name="username" class="input-neon" id="username" placeholder="Username"
-                        autocomplete="username" required>
+            <form method="POST" action="{{ url_for('login') }}" class="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" class="form-control" required>
                 </div>
-                <div class="form-group text-left">
-                    <label for="password" class="sr-only">Password</label>
-                    <input type="password" name="password" class="input-neon" id="password" placeholder="Password"
-                        autocomplete="current-password" required>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" class="form-control" required>
                 </div>
-
-                <button type="submit" class="btn-glow mt-4">
-                    Unlock Dashboard
-                </button>
+                <button type="submit" class="btn btn-primary">Secure Login</button>
             </form>
-
-            <div class="border-top-glass">
-                <a href="/" class="text-muted text-sm hover:text-white transition-colors">
-                    ← Return to Public Site
-                </a>
-            </div>
         </div>
     </div>
+</div>
 
-</body>
-
-</html>
+<style>
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+}
+.login-panel {
+    width: 100%;
+    max-width: 450px;
+    padding: 3rem;
+}
+.login-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+.login-form .form-group {
+    margin-bottom: 1.5rem;
+}
+.login-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+.login-form .form-control {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: rgba(0,0,0,0.2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.login-form .form-control:focus {
+    outline: none;
+    border-color: var(--text-accent);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3);
+}
+.login-form .btn {
+    width: 100%;
+    padding: 0.85rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.login-form .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.alert {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: var(--radius-md);
+    text-align: center;
+    background-color: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #fecaca;
+}
+</style>
+{% endblock %}

@@ -1,217 +1,158 @@
 {% extends "base.html" %}
 
+{% block title %}LegisQ - Bills Dashboard{% endblock %}
+
 {% block content %}
-
-<!-- Hero Section -->
-<div class="hero-section">
-    <h1 class="text-kinetic">Democracy, <br><span class="text-gradient">Transparent.</span></h1>
-    <p class="hero-subtitle text-kinetic animate-delay-1">
-        Track legislation, monitor parliamentary activity, and stay informed with real-time data from the heart of
-        Indian democracy.
-    </p>
-
-    <!-- Glass Controls -->
-    <div class="controls-glass text-kinetic animate-delay-2">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" class="search-input-glass" placeholder="Search bills, keywords, or dates..."
-            aria-label="Search bills">
-
-        <select id="categoryFilter" class="select-glass" aria-label="Filter by Category">
-            <option value="all">All Categories</option>
-            <option value="Education">Education</option>
-            <option value="Finance">Finance</option>
-            <option value="Defence">Defence</option>
-            <option value="Health">Health</option>
-            <option value="Technology">Technology</option>
-            <option value="Environment">Environment</option>
-        </select>
-
-        <!-- NEW: Sort Dropdown -->
-        <select id="sortFilter" class="select-glass" aria-label="Sort Bills">
-            <option value="date_desc">Newest First</option>
-            <option value="date_asc">Oldest First</option>
-            <option value="status">Status</option>
-        </select>
-    </div>
-</div>
-
-<!-- Main Grid -->
 <div class="container">
-    <div id="billsList" class="grid-news">
-        {% if bills %}
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <h1 class="hero-title">Democracy, Transparent.</h1>
+        <p class="hero-subtitle">
+            Track legislation, monitor parliamentary activity, and stay informed with real-time data from the heart of Indian democracy.
+        </p>
+    </section>
+
+    <!-- Filter & Search Controls -->
+    <section class="controls-container">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search bills by title or keyword...">
+        <select id="categoryFilter" class="filter-select">
+            <option value="all">All Categories</option>
+            <!-- Categories will be populated by JS if needed, or can be hardcoded -->
+        </select>
+        <select id="statusFilter" class="filter-select">
+            <option value="all">All Statuses</option>
+            <option value="Passed">Passed</option>
+            <option value="Pending">Pending</option>
+            <option value="Rejected">Rejected</option>
+        </select>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="chart-container glass-panel">
+        <h2 class="text-center" style="margin-bottom: 2rem;">Bill Status Overview</h2>
+        <canvas id="billsChart"></canvas>
+    </section>
+
+    <!-- Bills Grid -->
+    <section id="billsList" class="data-grid">
         {% for bill in bills %}
-        <div class="glass-panel" data-category="{{ bill.category|default('General') }}"
-            data-date="{{ bill.date_introduced }}" data-status="{{ bill.status }}">
-
-            <div class="card-header-flex">
-                <span class="badge-glass badge-category">📂 {{ bill.category }}</span>
-                <span class="badge-glass badge-status-{{ bill.status|lower }}">{{ bill.status }}</span>
+        <div class="glass-panel bill-card" data-title="{{ bill.title }}" data-category="{{ bill.category }}" data-status="{{ bill.status }}">
+            <div class="card-header">
+                <h3 class="card-title">{{ bill.title }}</h3>
+                <span class="status-badge status-{{ bill.status|lower }}">{{ bill.status }}</span>
             </div>
-
-            <h3 class="search-target mb-2 card-title-large">
-                {{ bill.title }}
-            </h3>
-
-            <!-- Date -->
-            <div class="text-muted text-sm mb-4">
-                Introduced: {{ bill.date_introduced }}
-            </div>
-
-            <div class="card-footer-action">
-                {% if bill.file_path %}
-                {% if 'http' in bill.file_path %}
-                <a href="{{ bill.file_path }}" target="_blank" class="btn-glass btn-glass-primary btn-full-width">
-                    Download PDF ⬇️
+            <p class="card-summary">
+                {{ bill.summary | default('No summary available.') }}
+            </p>
+            <div class="card-footer">
+                <span class="date-introduced">Introduced: {{ bill.date_introduced }}</span>
+                <a href="{{ bill.file_path or '#' }}" 
+                   class="btn-download {% if not bill.file_path %}disabled{% endif %}" 
+                   target="_blank" 
+                   rel="noopener noreferrer">
+                   Download PDF
                 </a>
-                {% else %}
-                <a href="/download/{{ bill.file_path }}" class="btn-glass btn-glass-primary btn-full-width" download>
-                    Download PDF ⬇️
-                </a>
-                {% endif %}
-                {% else %}
-                <button class="btn-glass btn-full-width btn-disabled" disabled>
-                    PDF Unavailable
-                </button>
-                {% endif %}
             </div>
-
+        </div>
+        {% else %}
+        <div class="glass-panel text-center" style="grid-column: 1 / -1;">
+            <h2>No Bills Found</h2>
+            <p class="text-muted">The database is currently empty or data is loading.</p>
         </div>
         {% endfor %}
-        {% else %}
-        <div class="glass-panel text-center col-span-full">
-            <h2>No Bills Found</h2>
-            <p class="text-muted">The database is currently empty.</p>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- NEW: Show More Button -->
-    <div class="text-center mt-8">
-        <button id="showMoreBtn" class="btn-glass hidden">Show More Bills</button>
-    </div>
+    </section>
 </div>
 
 <script>
-    // Data State
-    const allCards = Array.from(document.querySelectorAll('.glass-panel'));
-    const container = document.getElementById('billsList');
-    const showMoreBtn = document.getElementById('showMoreBtn');
-
-    // Inputs
+document.addEventListener('DOMContentLoaded', function() {
+    const bills = {{ bills|tojson }};
     const searchInput = document.getElementById('searchInput');
     const categoryFilter = document.getElementById('categoryFilter');
-    const sortFilter = document.getElementById('sortFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const billsList = document.getElementById('billsList');
+    const allBillCards = Array.from(billsList.querySelectorAll('.bill-card'));
 
-    // Config
-    let visibleCount = 5;
-    const LOAD_INCREMENT = 5;
-    let filteredCards = []; // Cards matching current search/filter
-
-    // Initialize
-    function init() {
-        // Initial Sort (Newest First is default in HTML, but let's enforce)
-        applyFiltersAndSort();
-
-        // Animation
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = 1;
-                    entry.target.style.transform = 'translateY(0)';
-                }
-            });
-        });
-
-        allCards.forEach(el => {
-            // Reset styles for JS control
-            el.style.opacity = 0;
-            el.style.transform = 'translateY(10px)';
-            el.style.transition = 'all 0.4s ease';
-            observer.observe(el);
-        });
-    }
-
-    function applyFiltersAndSort() {
-        const term = searchInput.value.toLowerCase();
-        const category = categoryFilter.value;
-        const sortMode = sortFilter.value;
-
-        // 1. FILTER
-        filteredCards = allCards.filter(card => {
-            const title = card.querySelector('.search-target').innerText.toLowerCase();
-            const cardCategory = card.getAttribute('data-category');
-
-            const matchesSearch = title.includes(term);
-            const matchesCategory = (category === 'all') || (cardCategory === category);
-
-            return matchesSearch && matchesCategory;
-        });
-
-        // 2. SORT
-        filteredCards.sort((a, b) => {
-            const dateA = new Date(a.getAttribute('data-date')).getTime() || 0;
-            const dateB = new Date(b.getAttribute('data-date')).getTime() || 0;
-            const statusA = a.getAttribute('data-status').toLowerCase();
-            const statusB = b.getAttribute('data-status').toLowerCase();
-
-            if (sortMode === 'date_desc') return dateB - dateA;
-            if (sortMode === 'date_asc') return dateA - dateB;
-            if (sortMode === 'status') return statusA.localeCompare(statusB);
-            return 0;
-        });
-
-        // 3. RENDER (With Limit)
-        renderCards();
-    }
-
-    function renderCards() {
-        // Clear container display (not content, just re-append in order)
-        container.innerHTML = '';
-
-        const toShow = filteredCards.slice(0, visibleCount);
-
-        if (toShow.length === 0) {
-            container.innerHTML = `
-                <div class="glass-panel text-center col-span-full">
-                    <h2>No Matching Bills</h2>
-                    <p class="text-muted">Try adjusting your filters.</p>
-                </div>
-            `;
-            showMoreBtn.style.display = 'none';
-            return;
-        }
-
-        toShow.forEach((card, index) => {
-            container.appendChild(card);
-            // Trigger animation
-            setTimeout(() => {
-                card.style.opacity = 1;
-                card.style.transform = 'translateY(0)';
-            }, index * 50);
-        });
-
-        // Handle Show More Button
-        if (filteredCards.length > visibleCount) {
-            showMoreBtn.style.display = 'inline-block';
-            showMoreBtn.innerText = `Show More (${filteredCards.length - visibleCount} remaining)`;
-        } else {
-            showMoreBtn.style.display = 'none';
-        }
-    }
-
-    // Event Listeners
-    searchInput.addEventListener('input', () => { visibleCount = 5; applyFiltersAndSort(); }); // Reset limit on search
-    categoryFilter.addEventListener('change', () => { visibleCount = 5; applyFiltersAndSort(); });
-    sortFilter.addEventListener('change', () => { applyFiltersAndSort(); });
-
-    showMoreBtn.addEventListener('click', () => {
-        visibleCount += LOAD_INCREMENT;
-        applyFiltersAndSort();
+    // --- Populate Filters ---
+    const categories = [...new Set(bills.map(b => b.category).filter(Boolean))];
+    categories.forEach(cat => {
+        const option = new Option(cat, cat);
+        categoryFilter.add(option);
     });
 
-    // Run
-    init();
+    // --- Filtering Logic ---
+    function filterAndRender() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const category = categoryFilter.value;
+        const status = statusFilter.value;
 
+        allBillCards.forEach(card => {
+            const title = card.dataset.title.toLowerCase();
+            const cardCategory = card.dataset.category;
+            const cardStatus = card.dataset.status;
+
+            const matchesSearch = title.includes(searchTerm);
+            const matchesCategory = (category === 'all' || cardCategory === category);
+            const matchesStatus = (status === 'all' || cardStatus === status);
+
+            if (matchesSearch && matchesCategory && matchesStatus) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // --- Chart.js Integration ---
+    function setupChart() {
+        const ctx = document.getElementById('billsChart').getContext('2d');
+        const statusCounts = bills.reduce((acc, bill) => {
+            acc[bill.status] = (acc[bill.status] || 0) + 1;
+            return acc;
+        }, {});
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(statusCounts),
+                datasets: [{
+                    label: 'Bill Status',
+                    data: Object.values(statusCounts),
+                    backgroundColor: [
+                        'rgba(74, 222, 128, 0.2)',  // Passed
+                        'rgba(251, 191, 36, 0.2)', // Pending
+                        'rgba(248, 113, 113, 0.2)'  // Rejected
+                    ],
+                    borderColor: [
+                        'rgba(74, 222, 128, 1)',
+                        'rgba(251, 191, 36, 1)',
+                        'rgba(248, 113, 113, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#f8fafc' // White text for legend
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- Event Listeners ---
+    searchInput.addEventListener('input', filterAndRender);
+    categoryFilter.addEventListener('change', filterAndRender);
+    statusFilter.addEventListener('change', filterAndRender);
+
+    // --- Initial Load ---
+    if (bills.length > 0) {
+        setupChart();
+    }
+});
 </script>
-
 {% endblock %}

@@ -1,42 +1,441 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LegisQ Admin Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;600&display=swap"
-        rel="stylesheet">
-</head>
+{% block title %}Admin Dashboard - LegisQ{% endblock %}
 
-<body class="aurora-bg">
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <h1 class="hero-title">Admin Command Center</h1>
+        <p class="hero-subtitle">
+            Manage the LegisQ database. Use the tabs below to switch between Bills and MPs.
+        </p>
+    </section>
 
-    <div class="container container-xl">
+    <!-- Tab Controls -->
+    <div class="tabs">
+        <button class="tab-link active" onclick="openTab(event, 'billsTab')">Manage Bills</button>
+        <button class="tab-link" onclick="openTab(event, 'mpsTab')">Manage MPs</button>
+    </div>
 
-        <!-- Header -->
-        <header class="admin-header">
-            <div class="brand flex items-center gap-3">
-                <span class="text-2rem">🏛️</span>
-                <div>
-                    <h1 class="text-xl-bold text-white">LegisQ</h1>
-                    <span class="tracking-wide-xs">Command Center</span>
+    <!-- Bills Tab -->
+    <div id="billsTab" class="tab-content active">
+        <div class="admin-grid">
+            <!-- Add/Edit Bill Form -->
+            <div class="glass-panel admin-form-panel">
+                <h3 id="billFormTitle">Add New Bill</h3>
+                <form id="billForm" class="admin-form">
+                    <input type="hidden" id="billId" name="id">
+                    <div class="form-group">
+                        <label for="billTitle">Title</label>
+                        <input type="text" id="billTitle" name="title" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="billStatus">Status</label>
+                        <select id="billStatus" name="status" class="form-control" required>
+                            <option value="Introduced">Introduced</option>
+                            <option value="Passed in LS">Passed in LS</option>
+                            <option value="Passed in RS">Passed in RS</option>
+                            <option value="Assented">Assented</option>
+                            <option value="Lapsed">Lapsed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="billSummary">Summary</label>
+                        <textarea id="billSummary" name="summary" class="form-control" rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="billPdf">Bill PDF (Optional)</label>
+                        <input type="file" id="billPdf" name="pdf" class="form-control" accept="application/pdf">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Bill</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetBillForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            <!-- Bills List -->
+            <div class="glass-panel admin-list-panel">
+                <h3>Existing Bills</h3>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="billsTableBody">
+                            {% for bill in bills %}
+                            <tr data-id="{{ bill.id }}">
+                                <td>{{ bill.title }}</td>
+                                <td><span class="badge">{{ bill.status }}</span></td>
+                                <td class="action-buttons">
+                                    <button class="btn-icon" onclick="editBill('{{ bill.id }}')">✏️</button>
+                                    <button class="btn-icon" onclick="deleteBill('{{ bill.id }}')">🗑️</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-            <div>
-                <a href="/" class="btn-glass text-sm">View Live Site ↗</a>
-                <a href="/login" class="btn-glass text-sm btn-logout">Login</a>
-            </div>
-        </header>
-
-        <div class="mb-4">
-            <div class="text-white text-center p-8">
-                <h2 class="text-2xl font-bold mb-4">Admin Panel Disabled</h2>
-                <p>This area is for demonstration purposes only. All backend functionality has been removed.</p>
             </div>
         </div>
     </div>
 
-</body>
+    <!-- MPs Tab -->
+    <div id="mpsTab" class="tab-content">
+        <div class="admin-grid">
+            <!-- Add/Edit MP Form -->
+            <div class="glass-panel admin-form-panel">
+                <h3 id="mpFormTitle">Add New MP</h3>
+                <form id="mpForm" class="admin-form">
+                    <input type="hidden" id="mpId" name="id">
+                    <div class="form-group">
+                        <label for="mpName">Name</label>
+                        <input type="text" id="mpName" name="name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpState">State</label>
+                        <input type="text" id="mpState" name="state" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpConstituency">Constituency</label>
+                        <input type="text" id="mpConstituency" name="constituency" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpHouse">House</label>
+                        <select id="mpHouse" name="house" class="form-control" required>
+                            <option value="Lok Sabha">Lok Sabha</option>
+                            <option value="Rajya Sabha">Rajya Sabha</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpAttendance">Attendance %</label>
+                        <input type="number" id="mpAttendance" name="attendance_pct" class="form-control" step="0.1" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="mpQuestions">Questions</label>
+                        <input type="number" id="mpQuestions" name="questions" class="form-control" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="mpDebates">Debates</label>
+                        <input type="number" id="mpDebates" name="debates" class="form-control" min="0">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save MP</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetMpForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            <!-- MPs List -->
+            <div class="glass-panel admin-list-panel">
+                <h3>Existing MPs</h3>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>State</th>
+                                <th>House</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mpsTableBody">
+                            {% for mp in mps %}
+                            <tr data-id="{{ mp.id }}">
+                                <td>{{ mp.name }}</td>
+                                <td>{{ mp.state }}</td>
+                                <td><span class="badge">{{ mp.house }}</span></td>
+                                <td class="action-buttons">
+                                    <button class="btn-icon" onclick="editMp('{{ mp.id }}')">✏️</button>
+                                    <button class="btn-icon" onclick="deleteMp('{{ mp.id }}')">🗑️</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-</html>
+<style>
+/* Admin Page Specific Styles */
+.tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.tab-link {
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: color 0.3s ease, border-color 0.3s ease;
+}
+.tab-link:hover {
+    color: var(--text-primary);
+}
+.tab-link.active {
+    color: var(--text-accent);
+    border-bottom-color: var(--text-accent);
+}
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.5s ease;
+}
+.admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 2rem;
+}
+.admin-form-panel h3, .admin-list-panel h3 {
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+.admin-form .form-group { margin-bottom: 1rem; }
+.admin-form label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+.admin-form .form-control {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: rgba(0,0,0,0.2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+.form-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+.btn { padding: 0.75rem 1.5rem; border-radius: var(--radius-md); cursor: pointer; border: none; font-weight: 600; }
+.btn-primary { background: var(--primary-gradient); color: white; }
+.btn-secondary { background: rgba(255,255,255,0.1); color: white; }
+.table-container { max-height: 500px; overflow-y: auto; }
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th, .admin-table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+.admin-table th { font-weight: 600; color: var(--text-secondary); }
+.action-buttons { display: flex; gap: 1rem; }
+.btn-icon { background: none; border: none; cursor: pointer; font-size: 1.2rem; }
+
+@media (max-width: 900px) {
+    .admin-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<script>
+function openTab(evt, tabName) {
+    const tabcontent = document.getElementsByClassName("tab-content");
+    for (let i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    const tablinks = document.getElementsByClassName("tab-link");
+    for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+}
+
+function resetBillForm() {
+    document.getElementById('billForm').reset();
+    document.getElementById('billFormTitle').innerText = 'Add New Bill';
+    document.getElementById('billId').value = '';
+}
+
+async function handleBillSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const billId = form.querySelector('#billId').value;
+    const url = billId ? `/api/bills/${billId}` : '/api/bills';
+    // For file uploads, we must use PUT for updates, not a generic POST
+    const method = billId ? 'PUT' : 'POST';
+
+    const formData = new FormData(form);
+    // No longer converting to JSON, sending FormData directly
+    
+    try {
+        const response = await fetch(url, {
+            method: method,
+            body: formData // Send FormData directly
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save bill');
+        }
+
+        const savedBill = await response.json();
+        
+        if (billId) { // Update existing row
+            const row = document.querySelector(`tr[data-id="${billId}"]`);
+            row.cells[0].innerText = savedBill.title;
+            row.cells[1].innerHTML = `<span class="badge">${savedBill.status}</span>`;
+        } else { // Add new row
+            const newRow = `
+                <tr data-id="${savedBill.id}">
+                    <td>${savedBill.title}</td>
+                    <td><span class="badge">${savedBill.status}</span></td>
+                    <td class="action-buttons">
+                        <button class="btn-icon" onclick="editBill('${savedBill.id}')">✏️</button>
+                        <button class="btn-icon" onclick="deleteBill('${savedBill.id}')">🗑️</button>
+                    </td>
+                </tr>`;
+            document.getElementById('billsTableBody').insertAdjacentHTML('afterbegin', newRow);
+        }
+        
+        resetBillForm();
+        alert('Bill saved successfully!');
+
+    } catch (error) {
+        console.error('Submit Error:', error);
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function editBill(id) {
+    try {
+        const response = await fetch(`/api/bills/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch bill data');
+        
+        const bill = await response.json();
+        document.getElementById('billFormTitle').innerText = 'Edit Bill';
+        document.getElementById('billId').value = bill.id;
+        document.getElementById('billTitle').value = bill.title;
+        document.getElementById('billStatus').value = bill.status;
+        document.getElementById('billSummary').value = bill.summary;
+
+        window.scrollTo(0, 0); // Scroll to top to see the form
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function deleteBill(id) {
+    if (!confirm('Are you sure you want to delete this bill? This action cannot be undone.')) {
+        return;
+    }
+    try {
+        const response = await fetch(`/api/bills/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete bill');
+
+        document.querySelector(`tr[data-id="${id}"]`).remove();
+        alert('Bill deleted successfully.');
+
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+document.getElementById('billForm').addEventListener('submit', handleBillSubmit);
+
+// --- MP Management ---
+function resetMpForm() {
+    document.getElementById('mpForm').reset();
+    document.getElementById('mpFormTitle').innerText = 'Add New MP';
+    document.getElementById('mpId').value = '';
+}
+
+async function handleMpSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const mpId = form.querySelector('#mpId').value;
+    const url = mpId ? `/api/mps/${mpId}` : '/api/mps';
+    const method = mpId ? 'PUT' : 'POST';
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save MP');
+        }
+
+        const savedMp = await response.json();
+        
+        if (mpId) { // Update row
+            const row = document.querySelector(`#mpsTableBody tr[data-id="${mpId}"]`);
+            row.cells[0].innerText = savedMp.name;
+            row.cells[1].innerText = savedMp.state;
+            row.cells[2].innerHTML = `<span class="badge">${savedMp.house}</span>`;
+        } else { // Add new row
+            const newRow = `
+                <tr data-id="${savedMp.id}">
+                    <td>${savedMp.name}</td>
+                    <td>${savedMp.state}</td>
+                    <td><span class="badge">${savedMp.house}</span></td>
+                    <td class="action-buttons">
+                        <button class="btn-icon" onclick="editMp('${savedMp.id}')">✏️</button>
+                        <button class="btn-icon" onclick="deleteMp('${savedMp.id}')">🗑️</button>
+                    </td>
+                </tr>`;
+            document.getElementById('mpsTableBody').insertAdjacentHTML('afterbegin', newRow);
+        }
+        
+        resetMpForm();
+        alert('MP saved successfully!');
+
+    } catch (error) {
+        console.error('MP Submit Error:', error);
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function editMp(id) {
+    try {
+        const response = await fetch(`/api/mps/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch MP data');
+        
+        const mp = await response.json();
+        document.getElementById('mpFormTitle').innerText = 'Edit MP';
+        document.getElementById('mpId').value = mp.id;
+        document.getElementById('mpName').value = mp.name;
+        document.getElementById('mpState').value = mp.state;
+        document.getElementById('mpConstituency').value = mp.constituency;
+        document.getElementById('mpHouse').value = mp.house;
+        document.getElementById('mpAttendance').value = mp.attendance_pct;
+        document.getElementById('mpQuestions').value = mp.questions;
+        document.getElementById('mpDebates').value = mp.debates;
+
+        openTab(new Event('click'), 'mpsTab'); // Switch to the MP tab
+        window.scrollTo(0, 0); // Scroll to top
+
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function deleteMp(id) {
+    if (!confirm('Are you sure you want to delete this MP?')) {
+        return;
+    }
+    try {
+        const response = await fetch(`/api/mps/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete MP');
+
+        document.querySelector(`#mpsTableBody tr[data-id="${id}"]`).remove();
+        alert('MP deleted successfully.');
+
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+document.getElementById('mpForm').addEventListener('submit', handleMpSubmit);
+</script>
+{% endblock %}
