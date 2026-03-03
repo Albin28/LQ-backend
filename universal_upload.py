@@ -53,7 +53,7 @@ def find_data_file(filename):
 def find_pdf_on_disk(directory, bill_id):
     """
     Finds the PDF for a bill (case-insensitive search).
-    Input: "Bill_101" -> Finds: "Bill_101.pdf" or "bill_101.pdf"
+    Input: "Bill_101" -> Finds: "Bill_101.pdf", "bill_101.pdf", OR "Bill 101.pdf" (spaces)
     """
     if not os.path.exists(directory):
         return ""
@@ -62,8 +62,13 @@ def find_pdf_on_disk(directory, bill_id):
     all_files = os.listdir(directory)
     
     for f in all_files:
+        # Match 1: Exact case-insensitive match (e.g., Bill_101.pdf == bill_101.pdf)
         if f.lower() == target_name.lower():
-            return f 
+            return f
+        # Match 2: Normalize spaces->underscores in the filename before comparing
+        # This catches "Bill 101.pdf" matching against target "Bill_101.pdf"
+        if f.lower().replace(" ", "_") == target_name.lower():
+            return f
     return ""
 
 def get_col(row, aliases, default=''):
