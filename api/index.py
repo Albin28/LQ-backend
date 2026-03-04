@@ -4,22 +4,32 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from dotenv import load_dotenv
-import feedparser
+try:
+    import feedparser
+except Exception:
+    feedparser = None
+    print("⚠️ feedparser import failed; RSS news will be disabled.")
 import time
 from time import mktime
 from datetime import datetime
 import re
 from urllib.parse import urlparse
+from firebase_admin import auth as firebase_auth
 
 from werkzeug.utils import secure_filename
 
 # --- CONFIGURATION ---
 load_dotenv()
 
+import requests
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "a_strong_default_secret_key")
 app.config['UPLOAD_FOLDER'] = os.path.join(app.static_folder, 'dataset')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 
 
 # --- FIREBASE SETUP ---
@@ -47,10 +57,17 @@ try:
     db = firestore.client()
     bucket = storage.bucket()
     print("✅ Firebase connected successfully (Firestore & Storage).")
+    # defer creating/checking the admin user until after initialization completes
 except Exception as e:
     print(f"❌ Firebase connection error: {e}")
     # You might want to handle this more gracefully
     # For now, the app will continue but database-dependent routes will fail.
+
+# If Firebase initialized successfully, ensure admin user exists
+if db is not None:
+    # NOTE: call to ensure_admin_user() moved below after the function definition
+    # to avoid NameError when the function is defined later in this file.
+    pass
 
 # --- RSS FEED SETUP ---
 RSS_FEEDS = [
@@ -163,6 +180,87 @@ def delete_blob(blob_name):
     if blob.exists():
         blob.delete()
 
+
+def ensure_admin_user():
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+        print("⚠️ ADMIN_EMAIL or ADMIN_PASSWORD not set; skipping admin user sync.")
+        return
+    try:
+        try:
+            user = firebase_auth.get_user_by_email(ADMIN_EMAIL)
+            print(f"✅ Firebase admin user found for {ADMIN_EMAIL}.")
+        except firebase_auth.UserNotFoundError:
+            user = firebase_auth.create_user(email=ADMIN_EMAIL, password=ADMIN_PASSWORD)
+            print(f"🆕 Created Firebase admin user for {ADMIN_EMAIL}.")
+        
+        # Ensure the admin custom claim is set
+        if not user.custom_claims or not user.custom_claims.get('admin'):
+            firebase_auth.set_custom_user_claims(user.uid, {'admin': True})
+            print(f"🔑 Set admin custom claims for {ADMIN_EMAIL}.")
+            
+    except Exception as exc:
+        print(f"⚠️ Could not verify/create admin user: {exc}")
+
+
+# If Firebase initialized successfully, ensure admin user exists
+if db is not None:
+    try:
+        ensure_admin_user()
+    except Exception as e:
+        print(f"⚠️ Failed to ensure admin user: {e}")
+
+
+from functools import wraps
+
+def require_admin(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        id_token = session.get('id_token')
+        if not id_token:
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for('login'))
+        
+        try:
+            # Verify the ID token and check for admin claim
+            decoded_token = firebase_auth.verify_id_token(id_token)
+            if not decoded_token.get('admin'):
+                flash("Unauthorized. Admin privileges required.", "danger")
+                return redirect(url_for('home'))
+        except Exception as e:
+            print(f"❌ Token verification failed: {e}")
+            session.pop('user', None)
+            session.pop('id_token', None)
+            flash("Session expired. Please log in again.", "warning")
+            return redirect(url_for('login'))
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def authenticate_with_firebase(email: str, password: str):
+    if not FIREBASE_API_KEY:
+        raise ValueError("Firebase API key is not configured.")
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+    try:
+        resp = requests.post(
+            f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}",
+            json=payload,
+            timeout=10
+        )
+    except requests.RequestException as exc:
+        raise ValueError(f"Unable to reach Firebase Auth: {exc}") from exc
+
+    data = resp.json()
+    if resp.ok and data.get('idToken'):
+        return data
+
+    error_message = data.get('error', {}).get('message', 'Authentication failed')
+    raise ValueError(error_message)
+
 # --- PUBLIC ROUTES ---
 @app.route('/')
 def home():
@@ -196,16 +294,31 @@ def current_affairs():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
+        email = (request.form.get('username') or '').strip()
         password = request.form.get('password')
-        valid_user = os.getenv("ADMIN_USERNAME", "admin")
-        valid_pass = os.getenv("ADMIN_PASSWORD", "admin123")
 
-        if username == valid_user and password == valid_pass:
-            session['user'] = "admin"
+        if not email or not password:
+            flash("Email and password are required.", "danger")
+            return redirect(url_for('login'))
+
+        try:
+            auth_payload = authenticate_with_firebase(email, password)
+            id_token = auth_payload.get('idToken')
+            
+            # Verify the token and check for admin claim immediately on login
+            decoded_token = firebase_auth.verify_id_token(id_token)
+            if not decoded_token.get('admin'):
+                flash("Login failed. This account does not have admin privileges.", "danger")
+                return redirect(url_for('login'))
+
+            session['user'] = auth_payload.get('email', email)
+            session['id_token'] = id_token
             return redirect(url_for('admin_dashboard'))
-        else:
-            flash("Invalid credentials. Please try again.", "danger")
+        except ValueError as auth_error:
+            flash(f"Invalid credentials. {auth_error}", "danger")
+            return redirect(url_for('login'))
+        except Exception as exc:
+            flash(f"Authentication error: {exc}", "danger")
             return redirect(url_for('login'))
     
     # If already logged in, redirect to admin
@@ -217,12 +330,13 @@ def login():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
+    session.pop('id_token', None)
     return redirect(url_for('home'))
 
 # --- ADMIN ROUTES (SECURE) ---
 @app.route('/admin')
+@require_admin
 def admin_dashboard():
-    if 'user' not in session: return redirect(url_for('login'))
     if db is None: return "<h1>Database not connected.</h1>", 500
 
     bills_list = [serialize_bill_doc(doc) for doc in db.collection('bills').stream()]
@@ -231,8 +345,8 @@ def admin_dashboard():
 
 # --- API ROUTES ---
 @app.route('/api/bills', methods=['POST'])
+@require_admin
 def add_bill():
-    if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
     
     try:
         data = request.form
@@ -267,8 +381,8 @@ def add_bill():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/bills/<bill_id>', methods=['GET', 'PUT', 'DELETE'])
+@require_admin
 def manage_bill(bill_id):
-    if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
     doc_ref = db.collection('bills').document(bill_id)
     doc = doc_ref.get()
 
@@ -320,8 +434,8 @@ def manage_bill(bill_id):
             return jsonify({"error": str(e)}), 500
 
 @app.route('/api/mps/<mp_id>', methods=['GET', 'PUT', 'DELETE'])
+@require_admin
 def manage_mp(mp_id):
-    if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
     
     doc_ref = db.collection('mps').document(mp_id)
 
@@ -352,8 +466,8 @@ def manage_mp(mp_id):
             return jsonify({"error": str(e)}), 500
 
 @app.route('/api/mps', methods=['POST'])
+@require_admin
 def add_mp():
-    if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
     try:
         data = request.json
         if not data.get('name') or not data.get('state'):

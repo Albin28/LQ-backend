@@ -154,6 +154,21 @@ a {
     box-shadow: 0 7px 20px rgba(13, 71, 161, 0.4);
 }
 
+.nav-auth {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.logout-link {
+    color: #dc3545 !important;
+    font-size: 0.75rem !important;
+}
+
+.logout-link:hover {
+    background: rgba(220, 53, 69, 0.1) !important;
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
