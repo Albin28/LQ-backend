@@ -66,21 +66,33 @@ try:
             raise
             
         cred = credentials.Certificate(cert_json)
-        bucket_name = cert_json.get('project_id') + '.appspot.com'
-        print(f"📦 Using Firebase project: {cert_json.get('project_id')}")
+        project_id = cert_json.get('project_id')
+        bucket_name = os.getenv('FIREBASE_STORAGE_BUCKET') or f"{project_id}.appspot.com"
+        print(f"📦 Using Firebase project: {project_id}, Bucket: {bucket_name}")
     else:
         # Local development
         print("💻 Detecting Local environment...")
         cred = credentials.Certificate("serviceAccountKey.json")
         with open("serviceAccountKey.json") as f:
             cert_json = json.load(f)
-        bucket_name = cert_json.get('project_id') + '.appspot.com'
+        project_id = cert_json.get('project_id')
+        bucket_name = os.getenv('FIREBASE_STORAGE_BUCKET') or f"{project_id}.appspot.com"
+        print(f"📦 Using Firebase project: {project_id}, Bucket: {bucket_name}")
 
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred, {'storageBucket': bucket_name})
     
     db = firestore.client()
     bucket = storage.bucket()
+    # Test if the bucket is accessible
+    try:
+        if bucket:
+            # Just check if it exists or we can list/access it
+            bucket.exists()
+            print("✅ Firebase Storage bucket is accessible.")
+    except Exception as bucket_err:
+        print(f"⚠️ Firebase Storage bucket initialization check failed: {bucket_err}")
+
     print("✅ Firebase connected successfully (Firestore & Storage).")
 except Exception as e:
     print(f"❌ Firebase connection error: {e}")
@@ -177,6 +189,7 @@ def upload_pdf_file(pdf_file, doc_id):
     pdf_file.stream.seek(0)
     blob.upload_from_file(pdf_file, content_type=pdf_file.content_type or 'application/pdf')
     blob.make_public()
+    print(f"📄 PDF Uploaded successfully: {filename} -> {blob.public_url}")
     return blob.public_url, filename
 
 
@@ -200,9 +213,18 @@ def resolve_blob_name(doc_data):
 def delete_blob(blob_name):
     if not bucket or not blob_name:
         return
-    blob = bucket.blob(blob_name)
-    if blob.exists():
-        blob.delete()
+    # Only attempt to delete if it's a relative path (likely our bucket)
+    # and not a full URL or empty
+    if blob_name.startswith('http') or '/' not in blob_name:
+        if not blob_name.startswith('bills/'):
+             return
+             
+    try:
+        blob = bucket.blob(blob_name)
+        if blob.exists():
+            blob.delete()
+    except Exception as e:
+        print(f"⚠️ Failed to delete blob {blob_name}: {e}")
 
 
 def ensure_admin_user():
@@ -392,6 +414,12 @@ def add_bill():
 
         pdf_file = request.files.get('pdf') if request.files else None
         pdf_url, pdf_blob = upload_pdf_file(pdf_file, doc_ref.id)
+        
+        # Override with manual URL if provided and no file uploaded
+        manual_url = data.get('manual_pdf_url')
+        if manual_url and not pdf_url:
+            pdf_url = manual_url
+            pdf_blob = None
 
         bill_data = {
             "bill_no": data.get('bill_no') or provided_id,
@@ -435,13 +463,21 @@ def manage_bill(bill_id):
                     update_payload[field] = form_data[field]
 
             pdf_file = request.files.get('pdf') if request.files else None
-            if pdf_file and pdf_file.filename:
+            manual_url = form_data.get('manual_pdf_url')
+
+            if (pdf_file and pdf_file.filename) or manual_url:
                 old_data = doc.to_dict()
                 old_blob = resolve_blob_name(old_data)
-                pdf_url, pdf_blob = upload_pdf_file(pdf_file, bill_id)
-                if pdf_url:
-                    update_payload['pdf_url'] = pdf_url
-                    update_payload['pdf_blob'] = pdf_blob
+                
+                if pdf_file and pdf_file.filename:
+                    pdf_url, pdf_blob = upload_pdf_file(pdf_file, bill_id)
+                    if pdf_url:
+                        update_payload['pdf_url'] = pdf_url
+                        update_payload['pdf_blob'] = pdf_blob
+                        delete_blob(old_blob)
+                elif manual_url:
+                    update_payload['pdf_url'] = manual_url
+                    update_payload['pdf_blob'] = None # Explicitly clear blob if using manual link
                     delete_blob(old_blob)
 
             if not update_payload:

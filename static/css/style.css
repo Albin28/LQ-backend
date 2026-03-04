@@ -1,7 +1,10 @@
 :root {
-    --primary-blue: #0d47a1; /* A deeper, more vibrant blue */
-    --secondary-blue: #1976d2; /* A brighter, secondary blue */
-    --light-bg: #ffffff; /* Pure White */
+    --primary-blue: #0d47a1;
+    /* A deeper, more vibrant blue */
+    --secondary-blue: #1976d2;
+    /* A brighter, secondary blue */
+    --light-bg: #ffffff;
+    /* Pure White */
     --text-light: #ffffff;
     --text-dark: #0d47a1;
     --glass-surface: rgba(255, 255, 255, 0.8);
@@ -11,6 +14,7 @@
     --radius-lg: 12px;
     --radius-pill: 999px;
     --glass-blur: 8px;
+    --primary-gradient: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
 }
 
 /* --- Global Reset & Foundation --- */
@@ -29,7 +33,8 @@ body {
     background-color: var(--light-bg);
     color: var(--text-dark);
     line-height: 1.5;
-    font-size: 13px; /* Further reduced base font size */
+    font-size: 13px;
+    /* Further reduced base font size */
     overflow-x: hidden;
     min-height: 100vh;
     position: relative;
@@ -50,13 +55,26 @@ body::before {
 }
 
 @keyframes gradient-animation {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 /* --- Typography --- */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-family: 'Outfit', sans-serif;
     color: var(--text-dark);
     letter-spacing: -0.03em;
@@ -181,15 +199,22 @@ a {
 }
 
 .btn-primary {
-    background: var(--primary-blue);
-    color: var(--text-light);
+    background: var(--primary-gradient);
+    color: white !important;
     padding: 0.75rem 1.5rem;
     box-shadow: 0 6px 18px rgba(13, 71, 161, 0.3);
 }
 
 .btn-secondary {
-    background: rgba(25, 118, 210, 0.15);
-    color: var(--primary-blue);
+    background: rgba(25, 118, 210, 0.1);
+    color: var(--primary-blue) !important;
+    padding: 0.75rem 1.5rem;
+    border: 1px solid rgba(13, 71, 161, 0.2);
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white !important;
     padding: 0.75rem 1.5rem;
 }
 
@@ -278,6 +303,7 @@ a {
     color: var(--text-dark);
     outline: none;
 }
+
 .search-input::placeholder {
     color: var(--secondary-blue);
     opacity: 0.8;
@@ -339,23 +365,27 @@ a {
     flex-direction: column;
     height: 100%;
 }
+
 .news-card-content {
     padding: 1rem;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
 }
+
 .news-card-headline {
     font-size: 1.1rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
 }
+
 .news-card-summary {
     font-size: 0.85rem;
     color: var(--secondary-blue);
     flex-grow: 1;
     margin-bottom: 1rem;
 }
+
 .news-card-footer {
     display: flex;
     justify-content: space-between;
@@ -364,16 +394,29 @@ a {
     color: var(--secondary-blue);
     opacity: 0.9;
 }
+
 .news-source {
     padding: 0.2rem 0.6rem;
     border-radius: var(--radius-pill);
     color: white;
     font-weight: 500;
 }
-.news-source-toi { background-color: #1DA1F2; }
-.news-source-hindu { background-color: #D43D3D; }
-.news-source-ie { background-color: #F27E19; }
-.news-source-ndtv { background-color: #7B4397; }
+
+.news-source-toi {
+    background-color: #1DA1F2;
+}
+
+.news-source-hindu {
+    background-color: #D43D3D;
+}
+
+.news-source-ie {
+    background-color: #F27E19;
+}
+
+.news-source-ndtv {
+    background-color: #7B4397;
+}
 
 /* --- Footer --- */
 .footer {
@@ -392,14 +435,17 @@ a {
     margin: 5rem auto 0 auto;
     padding-top: 4rem;
 }
+
 .form-container h1 {
     text-align: center;
     margin-bottom: 1.5rem;
     color: var(--primary-blue);
 }
+
 .form-group {
     margin-bottom: 1.2rem;
 }
+
 .form-label {
     display: block;
     margin-bottom: 0.4rem;
@@ -407,6 +453,7 @@ a {
     font-size: 0.85rem;
     color: var(--secondary-blue);
 }
+
 .form-control {
     width: 100%;
     padding: 0.6rem 0.9rem;
@@ -416,6 +463,7 @@ a {
     color: var(--text-dark);
     font-size: 0.9rem;
 }
+
 .btn-submit {
     width: 100%;
     padding: 0.75rem;
@@ -428,9 +476,11 @@ a {
     cursor: pointer;
     transition: all 0.3s;
 }
+
 .btn-submit:hover {
     box-shadow: 0 5px 15px rgba(13, 71, 161, 0.4);
 }
+
 .alert {
     padding: 0.8rem;
     margin-bottom: 1rem;
@@ -438,16 +488,19 @@ a {
     text-align: center;
     font-size: 0.85rem;
 }
+
 .alert-danger {
     background-color: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
 }
+
 .login-link {
     text-align: center;
     margin-top: 1.2rem;
     font-size: 0.85rem;
 }
+
 .login-link a {
     color: var(--primary-blue);
     font-weight: 600;
@@ -457,29 +510,36 @@ a {
 .admin-section {
     margin-bottom: 3rem;
 }
+
 .admin-section h2 {
     border-bottom: 2px solid var(--primary-blue);
     padding-bottom: 0.4rem;
     margin-bottom: 1.5rem;
     color: var(--primary-blue);
 }
+
 .data-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
 }
-.data-table th, .data-table td {
+
+.data-table th,
+.data-table td {
     padding: 0.6rem;
     text-align: left;
     border-bottom: 1px solid var(--glass-border);
 }
+
 .data-table th {
     background: rgba(13, 71, 161, 0.08);
     font-weight: 600;
 }
+
 .data-table tr:hover {
     background: rgba(13, 71, 161, 0.04);
 }
+
 .action-btn {
     padding: 0.3rem 0.7rem;
     border: none;
@@ -489,10 +549,17 @@ a {
     margin-right: 0.4rem;
     font-size: 0.75rem;
 }
-.btn-edit { background-color: var(--secondary-blue); }
-.btn-delete { background-color: #dc3545; }
 
-#addBillForm, #addMpForm {
+.btn-edit {
+    background-color: var(--secondary-blue);
+}
+
+.btn-delete {
+    background-color: #dc3545;
+}
+
+#addBillForm,
+#addMpForm {
     background: var(--glass-surface);
     padding: 1.5rem;
     border-radius: var(--radius-lg);

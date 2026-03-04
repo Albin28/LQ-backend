@@ -21,9 +21,9 @@
     <!-- Bills Tab -->
     <div id="billsTab" class="tab-content active">
         <div class="admin-grid">
-            <!-- Add/Edit Bill Form -->
-            <div class="glass-panel admin-form-panel">
-                <h3 id="billFormTitle">Add New Bill</h3>
+            <!-- Edit Bill Form (Hidden by default) -->
+            <div id="billFormContainer" class="glass-panel admin-form-panel">
+                <h3 id="billFormTitle">Edit Existing Bill</h3>
                 <form id="billForm" class="admin-form">
                     <input type="hidden" id="billId" name="id">
                     <div class="form-group">
@@ -44,9 +44,18 @@
                         <label for="billSummary">Summary</label>
                         <textarea id="billSummary" name="summary" class="form-control" rows="4"></textarea>
                     </div>
+                    <div class="form-group" id="pdfPreviewGroup">
+                        <span class="form-label">Current PDF:</span>
+                        <a id="currentPdfLink" href="#" target="_blank" class="nav-link-inline">View Attached File</a>
+                    </div>
                     <div class="form-group">
-                        <label for="billPdf">Bill PDF (Optional)</label>
-                        <input type="file" id="billPdf" name="pdf" class="form-control" accept="application/pdf">
+                        <label for="manualPdfUrl">Manual PDF URL (Fallback)</label>
+                        <input type="url" id="manualPdfUrl" name="manual_pdf_url" class="form-control"
+                            placeholder="https://example.com/bill.pdf">
+                    </div>
+                    <div class="form-group">
+                        <label for="billPdf">Or Upload Bill PDF</label>
+                        <input type="file" id="billPdf" name="pdf" class="form-control-file" accept="application/pdf">
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save Bill</button>
@@ -88,8 +97,8 @@
     <div id="mpsTab" class="tab-content">
         <div class="admin-grid">
             <!-- Add/Edit MP Form -->
-            <div class="glass-panel admin-form-panel">
-                <h3 id="mpFormTitle">Add New MP</h3>
+            <div id="mpFormContainer" class="glass-panel admin-form-panel">
+                <h3 id="mpFormTitle">Edit Existing MP</h3>
                 <form id="mpForm" class="admin-form">
                     <input type="hidden" id="mpId" name="id">
                     <div class="form-group">
@@ -110,6 +119,11 @@
                             <option value="Lok Sabha">Lok Sabha</option>
                             <option value="Rajya Sabha">Rajya Sabha</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpSession">Session (e.g., 17th Lok Sabha)</label>
+                        <input type="text" id="mpSession" name="session" class="form-control"
+                            placeholder="17th Lok Sabha">
                     </div>
                     <div class="form-group">
                         <label for="mpAttendance">Attendance %</label>
@@ -202,6 +216,11 @@
         animation: fadeIn 0.5s ease;
     }
 
+    #billFormContainer {
+        display: none;
+        margin-bottom: 2rem;
+    }
+
     .admin-grid {
         display: grid;
         grid-template-columns: 1fr 2fr;
@@ -240,6 +259,31 @@
         margin-top: 1.5rem;
     }
 
+    #pdfPreviewGroup {
+        display: none;
+        background: rgba(13, 71, 161, 0.05);
+        padding: 0.8rem;
+        border-radius: var(--radius-sm);
+        border-left: 4px solid var(--primary-blue);
+    }
+
+    .nav-link-inline {
+        color: var(--primary-blue);
+        text-decoration: underline;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    .form-control-file {
+        width: 100%;
+        padding: 0.8rem;
+        background-color: rgba(0, 0, 0, 0.1);
+        border: 1px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+
     .btn {
         padding: 0.75rem 1.5rem;
         border-radius: var(--radius-md);
@@ -250,12 +294,10 @@
 
     .btn-primary {
         background: var(--primary-gradient);
-        color: white;
     }
 
     .btn-secondary {
         background: rgba(255, 255, 255, 0.1);
-        color: white;
     }
 
     .table-container {
@@ -326,8 +368,10 @@
 
     function resetBillForm() {
         document.getElementById('billForm').reset();
-        document.getElementById('billFormTitle').innerText = 'Add New Bill';
+        document.getElementById('billFormTitle').innerText = 'Edit Existing Bill';
         document.getElementById('billId').value = '';
+        document.getElementById('pdfPreviewGroup').style.display = 'none';
+        document.getElementById('billFormContainer').style.display = 'none';
     }
 
     async function handleBillSubmit(event) {
@@ -358,17 +402,8 @@
                 const row = document.querySelector(`tr[data-id="${billId}"]`);
                 row.cells[0].innerText = savedBill.title;
                 row.cells[1].innerHTML = `<span class="badge">${savedBill.status}</span>`;
-            } else { // Add new row
-                const newRow = `
-                <tr data-id="${savedBill.id}">
-                    <td>${savedBill.title}</td>
-                    <td><span class="badge">${savedBill.status}</span></td>
-                    <td class="action-buttons">
-                        <button class="btn-icon" onclick="editBill('${savedBill.id}')">✏️</button>
-                        <button class="btn-icon" onclick="deleteBill('${savedBill.id}')">🗑️</button>
-                    </td>
-                </tr>`;
-                document.getElementById('billsTableBody').insertAdjacentHTML('afterbegin', newRow);
+                // Since we only edit, we expect billId to always exist
+                console.warn('Bill updated but no ID found in form - this should not happen in edit-only mode.');
             }
 
             resetBillForm();
@@ -386,11 +421,28 @@
             if (!response.ok) throw new Error('Failed to fetch bill data');
 
             const bill = await response.json();
-            document.getElementById('billFormTitle').innerText = 'Edit Bill';
+            document.getElementById('billFormTitle').innerText = 'Edit Bill: ' + bill.title;
             document.getElementById('billId').value = bill.id;
+            document.getElementById('billFormContainer').style.display = 'block';
             document.getElementById('billTitle').value = bill.title;
             document.getElementById('billStatus').value = bill.status;
-            document.getElementById('billSummary').value = bill.summary;
+            document.getElementById('billSummary').value = bill.summary || '';
+
+            if (bill.pdf_url) {
+                const previewGroup = document.getElementById('pdfPreviewGroup');
+                const link = document.getElementById('currentPdfLink');
+                link.href = bill.pdf_url;
+                previewGroup.style.display = 'block';
+                // If the URL doesn't look like a Firebase Storage URL, populate manual field
+                if (!bill.pdf_url.includes('firebasestorage.googleapis.com')) {
+                    document.getElementById('manualPdfUrl').value = bill.pdf_url;
+                } else {
+                    document.getElementById('manualPdfUrl').value = '';
+                }
+            } else {
+                document.getElementById('pdfPreviewGroup').style.display = 'none';
+                document.getElementById('manualPdfUrl').value = '';
+            }
 
             window.scrollTo(0, 0); // Scroll to top to see the form
         } catch (error) {
@@ -419,8 +471,9 @@
     // --- MP Management ---
     function resetMpForm() {
         document.getElementById('mpForm').reset();
-        document.getElementById('mpFormTitle').innerText = 'Add New MP';
+        document.getElementById('mpFormTitle').innerText = 'Edit Existing MP';
         document.getElementById('mpId').value = '';
+        document.getElementById('mpSession').value = '';
     }
 
     async function handleMpSubmit(event) {
@@ -490,6 +543,7 @@
             document.getElementById('mpAttendance').value = mp.attendance_pct;
             document.getElementById('mpQuestions').value = mp.questions;
             document.getElementById('mpDebates').value = mp.debates;
+            document.getElementById('mpSession').value = mp.session || '';
 
             openTab(null, 'mpsTab'); // Switch to the MP tab
             window.scrollTo(0, 0); // Scroll to top
@@ -516,5 +570,16 @@
     }
 
     document.getElementById('mpForm').addEventListener('submit', handleMpSubmit);
+
+    // --- Auto-open first bill on load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const firstBillRow = document.querySelector('#billsTableBody tr');
+        if (firstBillRow) {
+            const billId = firstBillRow.getAttribute('data-id');
+            if (billId) {
+                editBill(billId);
+            }
+        }
+    });
 </script>
 {% endblock %}
