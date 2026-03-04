@@ -51,16 +51,26 @@ FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 db = None
 bucket = None
 try:
-    # Vercel will use environment variables, local will use the file
-    if os.getenv('VERCEL_ENV') == 'production':
+    # Vercel sets 'VERCEL' to '1'. This is more reliable than checking for VERCEL_ENV == 'production'
+    if os.getenv('VERCEL') == '1' or os.getenv('VERCEL_ENV'):
+        print("🌐 Detecting Vercel environment...")
         cert_json_str = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY')
         if not cert_json_str:
+            print("❌ FIREBASE_SERVICE_ACCOUNT_KEY not found in environment variables.")
             raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY environment variable not set.")
-        cert_json = json.loads(cert_json_str)
+        
+        try:
+            cert_json = json.loads(cert_json_str)
+        except json.JSONDecodeError as decode_err:
+            print(f"❌ FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON: {decode_err}")
+            raise
+            
         cred = credentials.Certificate(cert_json)
         bucket_name = cert_json.get('project_id') + '.appspot.com'
+        print(f"📦 Using Firebase project: {cert_json.get('project_id')}")
     else:
         # Local development
+        print("💻 Detecting Local environment...")
         cred = credentials.Certificate("serviceAccountKey.json")
         with open("serviceAccountKey.json") as f:
             cert_json = json.load(f)
@@ -72,11 +82,10 @@ try:
     db = firestore.client()
     bucket = storage.bucket()
     print("✅ Firebase connected successfully (Firestore & Storage).")
-    # defer creating/checking the admin user until after initialization completes
 except Exception as e:
     print(f"❌ Firebase connection error: {e}")
-    # You might want to handle this more gracefully
-    # For now, the app will continue but database-dependent routes will fail.
+    # Consider storing the error to show it on the UI if db is None
+    app.config['FIREBASE_ERROR'] = str(e)
 
 # If Firebase initialized successfully, ensure admin user exists
 if db is not None:
@@ -281,7 +290,14 @@ def authenticate_with_firebase(email: str, password: str):
 def home():
     print(f"🔍 Home Page View - Session Keys: {list(session.keys())}")
     if db is None:
-        return "<h1>Database not connected. Check logs for errors.</h1>", 500
+        error_detail = app.config.get('FIREBASE_ERROR', 'Unknown error')
+        return f"""
+        <div style="font-family: sans-serif; padding: 2rem; border: 1px solid #ffcdd2; background: #ffebee; border-radius: 8px; max-width: 600px; margin: 2rem auto;">
+            <h1 style="color: #c62828;">Database not connected</h1>
+            <p><strong>Error Details:</strong> {error_detail}</p>
+            <p style="margin-top: 1rem; color: #555;">Check your Vercel Environment Variables: <code>FIREBASE_SERVICE_ACCOUNT_KEY</code> must be the complete JSON from your service account file.</p>
+        </div>
+        """, 500
     
     bills_ref = db.collection('bills').order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50)
     docs = bills_ref.stream()
@@ -458,7 +474,7 @@ def manage_mp(mp_id):
     if request.method == 'GET':
         doc = doc_ref.get()
         if doc.exists:
-            return jsonify(doc.to_dict())
+            return jsonify(serialize_generic_doc(doc))
         else:
             return jsonify({"error": "Not Found"}), 404
 

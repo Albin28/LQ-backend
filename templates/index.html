@@ -8,18 +8,19 @@
     <section class="hero-section">
         <h1 class="hero-title">Democracy, Transparent.</h1>
         <p class="hero-subtitle">
-            Track legislation, monitor parliamentary activity, and stay informed with real-time data from the heart of Indian democracy.
+            Track legislation, monitor parliamentary activity, and stay informed with real-time data from the heart of
+            Indian democracy.
         </p>
     </section>
 
     <!-- Filter & Search Controls -->
     <section class="controls-container">
         <input type="text" id="searchInput" class="search-input" placeholder="Search bills by title or keyword...">
-        <select id="categoryFilter" class="filter-select">
+        <select id="categoryFilter" class="filter-select" title="Filter by Category">
             <option value="all">All Categories</option>
             <!-- Categories will be populated by JS if needed, or can be hardcoded -->
         </select>
-        <select id="statusFilter" class="filter-select">
+        <select id="statusFilter" class="filter-select" title="Filter by Status">
             <option value="all">All Statuses</option>
             <option value="Assented">Assented</option>
             <option value="Lapsed">Lapsed</option>
@@ -28,7 +29,7 @@
 
     <!-- Chart Section -->
     <section class="chart-container glass-panel">
-        <h2 class="text-center" style="margin-bottom: 2rem;">Bill Status Overview</h2>
+        <h2 class="text-center chart-title">Bill Status Overview</h2>
         <div class="chart-canvas-wrapper">
             <canvas id="billsChart"></canvas>
         </div>
@@ -37,7 +38,8 @@
     <!-- Bills Grid -->
     <section id="billsList" class="data-grid">
         {% for bill in bills %}
-        <div class="glass-panel bill-card" data-title="{{ bill.title }}" data-category="{{ bill.category }}" data-status="{{ bill.status }}">
+        <div class="glass-panel bill-card" data-title="{{ bill.title }}" data-category="{{ bill.category }}"
+            data-status="{{ bill.status }}">
             <div class="card-header">
                 <h3 class="card-title">{{ bill.title }}</h3>
                 <span class="status-badge status-{{ bill.status|lower }}">{{ bill.status }}</span>
@@ -47,16 +49,14 @@
             </p>
             <div class="card-footer">
                 <span class="date-introduced">Introduced: {{ bill.date_introduced }}</span>
-                     <a href="{{ bill.pdf_url or '#' }}" 
-                         class="btn-download {% if not bill.pdf_url %}disabled{% endif %}" 
-                   target="_blank" 
-                   rel="noopener noreferrer">
-                   Download PDF
+                <a href="{{ bill.pdf_url or '#' }}" class="btn-download {% if not bill.pdf_url %}disabled{% endif %}"
+                    target="_blank" rel="noopener noreferrer">
+                    Download PDF
                 </a>
             </div>
         </div>
         {% else %}
-        <div class="glass-panel text-center" style="grid-column: 1 / -1;">
+        <div class="glass-panel text-center grid-full-width">
             <h2>No Bills Found</h2>
             <p class="text-muted">The database is currently empty or data is loading.</p>
         </div>
@@ -65,8 +65,8 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const bills = {{ bills|tojson }};
+    document.addEventListener('DOMContentLoaded', function () {
+        const billsData = {{ bills|tojson }};
     const searchInput = document.getElementById('searchInput');
     const categoryFilter = document.getElementById('categoryFilter');
     const statusFilter = document.getElementById('statusFilter');
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const allBillCards = Array.from(billsList.querySelectorAll('.bill-card'));
 
     // --- Populate Filters ---
-    const categories = [...new Set(bills.map(b => b.category).filter(Boolean))];
+    const categories = [...new Set(billsData.map(b => b.category).filter(Boolean))];
     categories.forEach(cat => {
         const option = new Option(cat, cat);
         categoryFilter.add(option);
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Chart.js Integration ---
     function setupChart() {
         const ctx = document.getElementById('billsChart').getContext('2d');
-        const statusCounts = bills.reduce((acc, bill) => {
+        const statusCounts = billsData.reduce((acc, bill) => {
             const status = bill.status || 'Unknown';
             acc[status] = (acc[status] || 0) + 1;
             return acc;
@@ -158,9 +158,10 @@ document.addEventListener('DOMContentLoaded', function() {
     statusFilter.addEventListener('change', filterAndRender);
 
     // --- Initial Load ---
-    if (bills.length > 0) {
+    if (billsData.length > 0) {
         setupChart();
     }
 });
 </script>
 {% endblock %}
+
