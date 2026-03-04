@@ -31,7 +31,7 @@
                     class="nav-link {% if request.path == url_for('current_affairs') %}active{% endif %}">News</a>
             </div>
 
-            {% if 'user' in session %}
+            {% if session.get('user') and session.get('id_token') %}
             <div class="nav-auth">
                 <a href="{{ url_for('admin_dashboard') }}" class="btn-nav-action">Admin</a>
                 <a href="{{ url_for('logout') }}" class="nav-link logout-link">Logout</a>

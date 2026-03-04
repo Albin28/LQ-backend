@@ -23,9 +23,24 @@ load_dotenv()
 
 import requests
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "a_strong_default_secret_key")
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "1230984576-poda-patti-nayyinte-mone")
 app.config['UPLOAD_FOLDER'] = os.path.join(app.static_folder, 'dataset')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+from datetime import timedelta
+app.permanent_session_lifetime = timedelta(hours=2)
+
+@app.before_request
+def check_session_validity():
+    # Only check if we have a token
+    id_token = session.get('id_token')
+    if id_token:
+        try:
+            # This verifies the token isn't expired
+            firebase_auth.verify_id_token(id_token)
+        except Exception as e:
+            print(f"⚠️ Session expired or invalid, clearing: {e}")
+            session.clear()
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
@@ -264,6 +279,7 @@ def authenticate_with_firebase(email: str, password: str):
 # --- PUBLIC ROUTES ---
 @app.route('/')
 def home():
+    print(f"🔍 Home Page View - Session Keys: {list(session.keys())}")
     if db is None:
         return "<h1>Database not connected. Check logs for errors.</h1>", 500
     
@@ -313,6 +329,7 @@ def login():
 
             session['user'] = auth_payload.get('email', email)
             session['id_token'] = id_token
+            session.permanent = True
             return redirect(url_for('admin_dashboard'))
         except ValueError as auth_error:
             flash(f"Invalid credentials. {auth_error}", "danger")
@@ -329,8 +346,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
-    session.pop('id_token', None)
+    session.clear()
     return redirect(url_for('home'))
 
 # --- ADMIN ROUTES (SECURE) ---
