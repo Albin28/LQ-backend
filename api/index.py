@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash, send_from_directory
 import json
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, storage
 from dotenv import load_dotenv
 import feedparser
 import time
@@ -23,20 +23,29 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # --- FIREBASE SETUP ---
 db = None
+bucket = None
 try:
     # Vercel will use environment variables, local will use the file
     if os.getenv('VERCEL_ENV') == 'production':
-        cert_json = json.loads(os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY'))
+        cert_json_str = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY')
+        if not cert_json_str:
+            raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY environment variable not set.")
+        cert_json = json.loads(cert_json_str)
         cred = credentials.Certificate(cert_json)
+        bucket_name = cert_json.get('project_id') + '.appspot.com'
     else:
         # Local development
         cred = credentials.Certificate("serviceAccountKey.json")
+        with open("serviceAccountKey.json") as f:
+            cert_json = json.load(f)
+        bucket_name = cert_json.get('project_id') + '.appspot.com'
 
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred)
+        firebase_admin.initialize_app(cred, {'storageBucket': bucket_name})
     
     db = firestore.client()
-    print("✅ Firebase connected successfully.")
+    bucket = storage.bucket()
+    print("✅ Firebase connected successfully (Firestore & Storage).")
 except Exception as e:
     print(f"❌ Firebase connection error: {e}")
     # You might want to handle this more gracefully
@@ -162,6 +171,8 @@ def admin_dashboard():
 @app.route('/api/bills', methods=['POST'])
 def add_bill():
     if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
+    if not bucket: return jsonify({"error": "Firebase Storage not initialized"}), 500
+    
     try:
         data = request.form
         bill_no = data.get('bill_no')
@@ -174,11 +185,19 @@ def add_bill():
         if 'pdf' in request.files:
             pdf_file = request.files['pdf']
             if pdf_file.filename != '':
-                # Use bill_no for the filename to ensure uniqueness
-                filename = f"{str(bill_no)}.pdf"
-                pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                pdf_file.save(pdf_path)
-                pdf_url = url_for('static', filename=f'dataset/{filename}', _external=True)
+                filename = f"bills/{str(bill_no)}_{secure_filename(pdf_file.filename)}"
+                
+                blob = bucket.blob(filename)
+                
+                # Upload the file to Firebase Storage
+                blob.upload_from_file(pdf_file, content_type=pdf_file.content_type)
+                
+                # Make the blob publicly viewable
+                blob.make_public()
+                
+                # Get the public URL
+                pdf_url = blob.public_url
+                print(f"✅ Uploaded to GCS: {pdf_url}")
 
         bill_data = {
             "bill_no": bill_no,
@@ -192,13 +211,17 @@ def add_bill():
             bill_data["pdf_url"] = pdf_url
         
         doc_ref.set(bill_data, merge=True)
-        return jsonify(bill_data), 201
+        flash(f"Bill '{data['title']}' added/updated successfully!", "success")
+        return redirect(url_for('admin_dashboard'))
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"❌ Error in add_bill: {e}")
+        flash(f"An error occurred: {e}", "danger")
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/api/bills/<bill_id>', methods=['GET', 'PUT', 'DELETE'])
 def manage_bill(bill_id):
     if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
+    if not bucket: return jsonify({"error": "Firebase Storage not initialized"}), 500
     
     doc_ref = db.collection('bills').document(bill_id)
 
@@ -219,6 +242,22 @@ def manage_bill(bill_id):
 
     if request.method == 'DELETE':
         try:
+            # Before deleting the document, delete the associated PDF from storage
+            doc = doc_ref.get()
+            if doc.exists and 'pdf_url' in doc.to_dict():
+                pdf_url = doc.to_dict()['pdf_url']
+                if pdf_url:
+                    # Extract the blob name from the URL
+                    # This is a bit fragile, depends on the GCS URL format
+                    try:
+                        blob_name = "bills/" + pdf_url.split('/o/bills%2F')[1].split('?')[0]
+                        blob = bucket.blob(blob_name)
+                        if blob.exists():
+                            blob.delete()
+                            print(f"✅ Deleted PDF from GCS: {blob_name}")
+                    except Exception as e:
+                        print(f"⚠️ Could not delete PDF from GCS, maybe URL format changed or file not in 'bills/' folder? Error: {e}")
+
             doc_ref.delete()
             return jsonify({"success": True, "id": bill_id}), 200
         except Exception as e:
