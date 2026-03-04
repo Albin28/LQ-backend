@@ -56,48 +56,56 @@
 .login-form label {
     display: block;
     margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: var(--text-secondary);
+    font-weight: 600;
+    color: var(--primary-blue);
 }
 .login-form .form-control {
     width: 100%;
-    padding: 0.75rem 1rem;
-    background-color: rgba(0,0,0,0.2);
-    border: 1px solid var(--border-color);
+    padding: 0.8rem 1rem;
+    background-color: #ffffff;
+    border: 2px solid rgba(13, 71, 161, 0.15);
     border-radius: var(--radius-md);
-    color: var(--text-primary);
+    color: var(--text-dark);
     font-size: 1rem;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 6px 18px rgba(13, 71, 161, 0.08);
 }
 .login-form .form-control:focus {
     outline: none;
-    border-color: var(--text-accent);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3);
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.18);
 }
 .login-form .btn {
     width: 100%;
-    padding: 0.85rem;
-    font-size: 1rem;
-    font-weight: 600;
+    padding: 0.95rem;
+    font-size: 1.05rem;
+    font-weight: 700;
     border-radius: var(--radius-md);
-    background: var(--primary-gradient);
-    color: white;
+    background: linear-gradient(120deg, var(--primary-blue), var(--secondary-blue));
+    color: var(--text-light);
     border: none;
     cursor: pointer;
+    letter-spacing: 0.04em;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 25px rgba(13, 71, 161, 0.25);
 }
-.login-form .btn:hover {
+.login-form .btn:hover,
+.login-form .btn:focus-visible {
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    box-shadow: 0 16px 30px rgba(13, 71, 161, 0.35);
 }
 .alert {
     padding: 1rem;
     margin-bottom: 1.5rem;
     border-radius: var(--radius-md);
     text-align: center;
-    background-color: rgba(239, 68, 68, 0.2);
-    border: 1px solid rgba(239, 68, 68, 0.5);
-    color: #fecaca;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.alert-danger {
+    background-color: #ffe4e6;
+    border: 1px solid #fb7185;
+    color: #b91c1c;
 }
 </style>
 {% endblock %}
