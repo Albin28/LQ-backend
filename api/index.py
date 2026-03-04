@@ -9,6 +9,7 @@ import time
 from time import mktime
 from datetime import datetime
 import re
+from urllib.parse import urlparse
 
 from werkzeug.utils import secure_filename
 
@@ -101,6 +102,67 @@ def get_rss_news():
     print("💾 Saved News to Cache")
     return all_news
 
+
+def format_timestamp(value):
+    """Convert Firestore timestamps into human-readable strings."""
+    if hasattr(value, 'to_datetime'):
+        value = value.to_datetime()
+    if isinstance(value, datetime):
+        return value.strftime("%b %d, %Y")
+    return value
+
+
+def serialize_bill_doc(doc):
+    data = doc.to_dict() or {}
+    data['id'] = doc.id
+    if 'date_introduced' in data:
+        data['date_introduced'] = format_timestamp(data['date_introduced'])
+    return data
+
+
+def serialize_generic_doc(doc):
+    data = doc.to_dict() or {}
+    data['id'] = doc.id
+    return data
+
+
+def upload_pdf_file(pdf_file, doc_id):
+    if not bucket or not pdf_file or not pdf_file.filename:
+        return None, None
+
+    safe_name = secure_filename(pdf_file.filename)
+    filename = f"bills/{doc_id}/{int(time.time())}_{safe_name}" if doc_id else f"bills/{int(time.time())}_{safe_name}"
+    blob = bucket.blob(filename)
+    pdf_file.stream.seek(0)
+    blob.upload_from_file(pdf_file, content_type=pdf_file.content_type or 'application/pdf')
+    blob.make_public()
+    return blob.public_url, filename
+
+
+def resolve_blob_name(doc_data):
+    if not doc_data:
+        return None
+    if doc_data.get('pdf_blob'):
+        return doc_data['pdf_blob']
+    pdf_url = doc_data.get('pdf_url')
+    if not pdf_url:
+        return None
+    parsed = urlparse(pdf_url)
+    path = parsed.path.lstrip('/')
+    if bucket:
+        bucket_prefix = f"{bucket.name}/"
+        if path.startswith(bucket_prefix):
+            return path[len(bucket_prefix):]
+    return path
+
+
+def delete_blob(blob_name):
+    if not bucket or not blob_name:
+        return
+    blob = bucket.blob(blob_name)
+    if blob.exists():
+        blob.delete()
+
 # --- PUBLIC ROUTES ---
 @app.route('/')
 def home():
@@ -109,7 +171,7 @@ def home():
     
     bills_ref = db.collection('bills').order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50)
     docs = bills_ref.stream()
-    bills_list = [doc.to_dict() for doc in docs]
+    bills_list = [serialize_bill_doc(doc) for doc in docs]
     return render_template('index.html', bills=bills_list)
 
 @app.route('/mps')
@@ -118,7 +180,7 @@ def mps_dashboard():
     
     mps_ref = db.collection('mps')
     docs = mps_ref.stream()
-    mps_list = [doc.to_dict() for doc in docs]
+    mps_list = [serialize_generic_doc(doc) for doc in docs]
     
     sessions = sorted(list(set(mp.get('session', 'N/A') for mp in mps_list)))
     houses = sorted(list(set(mp.get('house', 'N/A') for mp in mps_list)))
@@ -163,101 +225,95 @@ def admin_dashboard():
     if 'user' not in session: return redirect(url_for('login'))
     if db is None: return "<h1>Database not connected.</h1>", 500
 
-    bills_list = [doc.to_dict() for doc in db.collection('bills').stream()]
-    mps_list = [doc.to_dict() for doc in db.collection('mps').stream()]
+    bills_list = [serialize_bill_doc(doc) for doc in db.collection('bills').stream()]
+    mps_list = [serialize_generic_doc(doc) for doc in db.collection('mps').stream()]
     return render_template('admin.html', bills=bills_list, mps=mps_list)
 
 # --- API ROUTES ---
 @app.route('/api/bills', methods=['POST'])
 def add_bill():
     if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
-    if not bucket: return jsonify({"error": "Firebase Storage not initialized"}), 500
     
     try:
         data = request.form
-        bill_no = data.get('bill_no')
-        if not bill_no or not data.get('title') or not data.get('status'):
-            return jsonify({"error": "Missing required fields: bill_no, title, status"}), 400
-        
-        doc_ref = db.collection('bills').document(str(bill_no))
-        
-        pdf_url = None
-        if 'pdf' in request.files:
-            pdf_file = request.files['pdf']
-            if pdf_file.filename != '':
-                filename = f"bills/{str(bill_no)}_{secure_filename(pdf_file.filename)}"
-                
-                blob = bucket.blob(filename)
-                
-                # Upload the file to Firebase Storage
-                blob.upload_from_file(pdf_file, content_type=pdf_file.content_type)
-                
-                # Make the blob publicly viewable
-                blob.make_public()
-                
-                # Get the public URL
-                pdf_url = blob.public_url
-                print(f"✅ Uploaded to GCS: {pdf_url}")
+        title = data.get('title')
+        status = data.get('status')
+        if not title or not status:
+            return jsonify({"error": "Missing required fields: title, status"}), 400
+
+        provided_id = data.get('id') or data.get('bill_no')
+        doc_ref = db.collection('bills').document(provided_id) if provided_id else db.collection('bills').document()
+
+        pdf_file = request.files.get('pdf') if request.files else None
+        pdf_url, pdf_blob = upload_pdf_file(pdf_file, doc_ref.id)
 
         bill_data = {
-            "bill_no": bill_no,
-            "title": data['title'],
-            "status": data['status'],
+            "bill_no": data.get('bill_no') or provided_id,
+            "title": title,
+            "status": status,
             "summary": data.get('summary', ''),
             "house": data.get('house', ''),
             "date_introduced": firestore.SERVER_TIMESTAMP,
         }
         if pdf_url:
             bill_data["pdf_url"] = pdf_url
+            bill_data["pdf_blob"] = pdf_blob
         
         doc_ref.set(bill_data, merge=True)
-        flash(f"Bill '{data['title']}' added/updated successfully!", "success")
-        return redirect(url_for('admin_dashboard'))
+        saved_doc = doc_ref.get()
+        return jsonify(serialize_bill_doc(saved_doc)), 201
     except Exception as e:
         print(f"❌ Error in add_bill: {e}")
-        flash(f"An error occurred: {e}", "danger")
-        return redirect(url_for('admin_dashboard'))
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/bills/<bill_id>', methods=['GET', 'PUT', 'DELETE'])
 def manage_bill(bill_id):
     if 'user' not in session: return jsonify({"error": "Unauthorized"}), 401
-    if not bucket: return jsonify({"error": "Firebase Storage not initialized"}), 500
-    
     doc_ref = db.collection('bills').document(bill_id)
+    doc = doc_ref.get()
 
     if request.method == 'GET':
-        doc = doc_ref.get()
-        if doc.exists:
-            return jsonify(doc.to_dict())
-        else:
+        if not doc.exists:
             return jsonify({"error": "Not Found"}), 404
+        return jsonify(serialize_bill_doc(doc))
 
     if request.method == 'PUT':
         try:
-            data = request.json
-            doc_ref.update(data)
-            return jsonify({"id": bill_id, **data}), 200
+            if not doc.exists:
+                return jsonify({"error": "Not Found"}), 404
+
+            form_data = request.form if request.form else request.get_json(force=True, silent=True) or {}
+            update_payload = {}
+            for field in ['title', 'status', 'summary', 'house', 'bill_no']:
+                if field in form_data and form_data[field] is not None:
+                    update_payload[field] = form_data[field]
+
+            pdf_file = request.files.get('pdf') if request.files else None
+            if pdf_file and pdf_file.filename:
+                old_data = doc.to_dict()
+                old_blob = resolve_blob_name(old_data)
+                pdf_url, pdf_blob = upload_pdf_file(pdf_file, bill_id)
+                if pdf_url:
+                    update_payload['pdf_url'] = pdf_url
+                    update_payload['pdf_blob'] = pdf_blob
+                    delete_blob(old_blob)
+
+            if not update_payload:
+                return jsonify({"error": "No data provided for update"}), 400
+
+            doc_ref.update(update_payload)
+            updated_doc = doc_ref.get()
+            return jsonify(serialize_bill_doc(updated_doc)), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     if request.method == 'DELETE':
         try:
-            # Before deleting the document, delete the associated PDF from storage
-            doc = doc_ref.get()
-            if doc.exists and 'pdf_url' in doc.to_dict():
-                pdf_url = doc.to_dict()['pdf_url']
-                if pdf_url:
-                    # Extract the blob name from the URL
-                    # This is a bit fragile, depends on the GCS URL format
-                    try:
-                        blob_name = "bills/" + pdf_url.split('/o/bills%2F')[1].split('?')[0]
-                        blob = bucket.blob(blob_name)
-                        if blob.exists():
-                            blob.delete()
-                            print(f"✅ Deleted PDF from GCS: {blob_name}")
-                    except Exception as e:
-                        print(f"⚠️ Could not delete PDF from GCS, maybe URL format changed or file not in 'bills/' folder? Error: {e}")
-
+            if not doc.exists:
+                return jsonify({"error": "Not Found"}), 404
+            doc_data = doc.to_dict()
+            blob_name = resolve_blob_name(doc_data)
+            delete_blob(blob_name)
             doc_ref.delete()
             return jsonify({"success": True, "id": bill_id}), 200
         except Exception as e:

@@ -21,9 +21,8 @@
         </select>
         <select id="statusFilter" class="filter-select">
             <option value="all">All Statuses</option>
-            <option value="Passed">Passed</option>
-            <option value="Pending">Pending</option>
-            <option value="Rejected">Rejected</option>
+            <option value="Assented">Assented</option>
+            <option value="Lapsed">Lapsed</option>
         </select>
     </section>
 
@@ -46,8 +45,8 @@
             </p>
             <div class="card-footer">
                 <span class="date-introduced">Introduced: {{ bill.date_introduced }}</span>
-                <a href="{{ bill.file_path or '#' }}" 
-                   class="btn-download {% if not bill.file_path %}disabled{% endif %}" 
+                     <a href="{{ bill.pdf_url or '#' }}" 
+                         class="btn-download {% if not bill.pdf_url %}disabled{% endif %}" 
                    target="_blank" 
                    rel="noopener noreferrer">
                    Download PDF
@@ -106,37 +105,44 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupChart() {
         const ctx = document.getElementById('billsChart').getContext('2d');
         const statusCounts = bills.reduce((acc, bill) => {
-            acc[bill.status] = (acc[bill.status] || 0) + 1;
+            const status = bill.status || 'Unknown';
+            acc[status] = (acc[status] || 0) + 1;
             return acc;
         }, {});
+
+        const colorPalette = {
+            'Introduced': { solid: 'rgba(144, 202, 249, 1)', soft: 'rgba(144, 202, 249, 0.3)' },
+            'Passed in LS': { solid: 'rgba(100, 181, 246, 1)', soft: 'rgba(100, 181, 246, 0.3)' },
+            'Passed in RS': { solid: 'rgba(66, 165, 245, 1)', soft: 'rgba(66, 165, 245, 0.3)' },
+            'Assented': { solid: 'rgba(13, 71, 161, 1)', soft: 'rgba(13, 71, 161, 0.3)' },
+            'Lapsed': { solid: 'rgba(229, 57, 53, 1)', soft: 'rgba(229, 57, 53, 0.3)' },
+            'Unknown': { solid: 'rgba(120, 144, 156, 1)', soft: 'rgba(120, 144, 156, 0.3)' }
+        };
+
+        const statusLabels = Object.keys(statusCounts);
+        const backgroundColors = statusLabels.map(label => (colorPalette[label]?.soft) || colorPalette['Unknown'].soft);
+        const borderColors = statusLabels.map(label => (colorPalette[label]?.solid) || colorPalette['Unknown'].solid);
 
         new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: Object.keys(statusCounts),
+                labels: statusLabels,
                 datasets: [{
                     label: 'Bill Status',
                     data: Object.values(statusCounts),
-                    backgroundColor: [
-                        'rgba(74, 222, 128, 0.2)',  // Passed
-                        'rgba(251, 191, 36, 0.2)', // Pending
-                        'rgba(248, 113, 113, 0.2)'  // Rejected
-                    ],
-                    borderColor: [
-                        'rgba(74, 222, 128, 1)',
-                        'rgba(251, 191, 36, 1)',
-                        'rgba(248, 113, 113, 1)'
-                    ],
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
                     borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         position: 'top',
                         labels: {
-                            color: '#f8fafc' // White text for legend
+                            color: '#0d47a1'
                         }
                     }
                 }

@@ -154,6 +154,51 @@ a {
     box-shadow: 0 7px 20px rgba(13, 71, 161, 0.4);
 }
 
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill);
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-primary {
+    background: var(--primary-blue);
+    color: var(--text-light);
+    padding: 0.75rem 1.5rem;
+    box-shadow: 0 6px 18px rgba(13, 71, 161, 0.3);
+}
+
+.btn-secondary {
+    background: rgba(25, 118, 210, 0.15);
+    color: var(--primary-blue);
+    padding: 0.75rem 1.5rem;
+}
+
+.btn:hover,
+.btn:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(13, 71, 161, 0.25);
+}
+
+.btn-download {
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius-pill);
+    background: rgba(13, 71, 161, 0.08);
+    color: var(--primary-blue);
+    font-weight: 600;
+    border: 1px solid rgba(13, 71, 161, 0.2);
+}
+
+.btn-download.disabled {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
 /* --- Glass Panels & Cards --- */
 .glass-panel {
     background: var(--glass-surface);
@@ -236,11 +281,21 @@ a {
 /* --- Chart --- */
 .chart-container {
     position: relative;
-    margin: auto;
-    height: 55vh; /* Smaller chart height */
-    width: 90%; /* Adjusted width */
-    max-width: 700px; /* Max width for larger screens */
-    padding: 1rem;
+    margin: 0 auto 2rem auto;
+    width: 100%;
+    max-width: 720px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.chart-container canvas {
+    width: 100% !important;
+    max-width: 520px;
+    height: auto !important;
 }
 
 /* --- Data Grid (MPs) --- */
