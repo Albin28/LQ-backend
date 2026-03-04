@@ -292,10 +292,15 @@ a {
     gap: 1rem;
 }
 
-.chart-container canvas {
-    width: 100% !important;
+.chart-canvas-wrapper {
+    width: 100%;
     max-width: 520px;
-    height: auto !important;
+    aspect-ratio: 1 / 1;
+}
+
+.chart-canvas-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* --- Data Grid (MPs) --- */
