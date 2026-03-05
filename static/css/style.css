@@ -565,3 +565,130 @@ a {
     border-radius: var(--radius-lg);
     margin-top: 1.5rem;
 }
+
+/* --- Responsive Media Queries --- */
+
+/* Tablet & Mobile (Standard) */
+@media (max-width: 768px) {
+    :root {
+        --glass-blur: 4px;
+        /* Faster rendering on mobile */
+    }
+
+    body {
+        font-size: 14px;
+        /* Larger text for readability on mobile */
+    }
+
+    .container {
+        padding: 1rem;
+    }
+
+    /* Navbar Mobile Adjustments */
+    .nav-wrapper {
+        top: 0.5rem;
+        width: 98%;
+    }
+
+    .glass-nav {
+        padding: 0.4rem 0.6rem;
+        border-radius: var(--radius-lg);
+        /* Less pill-like on mobile if needed */
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    .nav-brand {
+        font-size: 1rem;
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 0.2rem;
+    }
+
+    .nav-links {
+        gap: 0;
+    }
+
+    .nav-link {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+    }
+
+    .btn-nav-action {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+
+    /* Hero Section */
+    .hero-section {
+        padding: 6rem 1rem 3rem 1rem;
+    }
+
+    .hero-title {
+        font-size: 2rem;
+    }
+
+    /* Controls */
+    .controls-container {
+        flex-direction: column;
+        border-radius: var(--radius-lg);
+        width: 100%;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+
+    .search-input {
+        width: 100%;
+        border-bottom: 1px solid var(--glass-border);
+    }
+
+    /* Grids */
+    .data-grid,
+    .news-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+}
+
+/* Very Small Devices */
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 1.75rem;
+    }
+
+    .nav-links {
+        display: none;
+        /* Consider a hamburger menu for better UX, but for now just hide or compress */
+    }
+
+    /* If we keep links, make them fit */
+    .nav-links:has(.nav-link) {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .admin-form-panel,
+    .admin-list-panel {
+        padding: 1rem;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+    }
+}
+
+/* Laptop/Desktop specific tweaks */
+@media (min-width: 1024px) {
+    .container {
+        padding: 2rem;
+    }
+}

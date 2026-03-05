@@ -48,15 +48,6 @@
                         <span class="form-label">Current PDF:</span>
                         <a id="currentPdfLink" href="#" target="_blank" class="nav-link-inline">View Attached File</a>
                     </div>
-                    <div class="form-group">
-                        <label for="manualPdfUrl">Manual PDF URL (Fallback)</label>
-                        <input type="url" id="manualPdfUrl" name="manual_pdf_url" class="form-control"
-                            placeholder="https://example.com/bill.pdf">
-                    </div>
-                    <div class="form-group">
-                        <label for="billPdf">Or Upload Bill PDF</label>
-                        <input type="file" id="billPdf" name="pdf" class="form-control-file" accept="application/pdf">
-                    </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save Bill</button>
                         <button type="button" class="btn btn-secondary" onclick="resetBillForm()">Cancel</button>
@@ -106,18 +97,24 @@
                         <input type="text" id="mpName" name="name" class="form-control" required>
                     </div>
                     <div class="form-group">
-                        <label for="mpState">State</label>
-                        <input type="text" id="mpState" name="state" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="mpConstituency">Constituency</label>
-                        <input type="text" id="mpConstituency" name="constituency" class="form-control" required>
-                    </div>
-                    <div class="form-group">
                         <label for="mpHouse">House</label>
-                        <select id="mpHouse" name="house" class="form-control" required>
+                        <select id="mpHouse" name="house" class="form-control" required onchange="toggleConstituency()">
                             <option value="Lok Sabha">Lok Sabha</option>
                             <option value="Rajya Sabha">Rajya Sabha</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpState">State</label>
+                        <select id="mpState" name="state" class="form-control" required
+                            onchange="updateConstituencies()">
+                            <option value="">Select State</option>
+                            <!-- States will be populated by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group" id="constituencyGroup">
+                        <label for="mpConstituency">Constituency</label>
+                        <select id="mpConstituency" name="constituency" class="form-control">
+                            <option value="">Select Constituency</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -571,8 +568,94 @@
 
     document.getElementById('mpForm').addEventListener('submit', handleMpSubmit);
 
+    // --- MP Management Data & Logic ---
+    const STATE_CONSTITUENCIES = {
+        "Andhra Pradesh": ["Araku", "Srikakulam", "Vizianagaram", "Visakhapatnam", "Anakapalli", "Kakinada", "Amalapuram", "Rajahmundry", "Narsapuram", "Eluru", "Machilipatnam", "Vijayawada", "Guntur", "Narasaraopet", "Bapatla", "Ongole", "Nandyal", "Kurnool", "Anantapur", "Hindupur", "Kadapa", "Nellore", "Tirupati", "Rajampet", "Chittoor"],
+        "Arunachal Pradesh": ["Arunachal West", "Arunachal East"],
+        "Assam": ["Karimganj", "Silchar", "Autonomous District", "Dhubri", "Kokrajhar", "Barpeta", "Gauhati", "Mangaldoi", "Tezpur", "Nowgong", "Kaliabor", "Jorhat", "Dibrugarh", "Lakhimpur"],
+        "Bihar": ["Valmiki Nagar", "Paschim Champaran", "Purvi Champaran", "Sheohar", "Sitamarhi", "Madhubani", "Jhanjharpur", "Supaul", "Araria", "Kishanganj", "Katihar", "Purnia", "Madhepura", "Gopalganj", "Siwan", "Maharajganj", "Saran", "Hajipur", "Vaishali", "Muzaffarpur", "Vaishali", "Gopalganj", "Siwan", "Saran", "Hajipur", "Ujiarpur", "Samastipur", "Begusarai", "Khagaria", "Bhagalpur", "Banka", "Munger", "Nalanda", "Patna Sahib", "Pataliputra", "Arrah", "Buxar", "Sasaram", "Karakat", "Jahanabad", "Aurangabad", "Gaya", "Nawada", "Jamui"],
+        "Chhattisgarh": ["Surguja", "Raigarh", "Janjgir-Champa", "Korba", "Bilaspur", "Rajnandgaon", "Durg", "Raipur", "Mahasamund", "Bastar", "Kanker"],
+        "Goa": ["North Goa", "South Goa"],
+        "Gujarat": ["Kutch", "Banaskantha", "Patan", "Mahesana", "Sabarkantha", "Gandhinagar", "Ahmedabad East", "Ahmedabad West", "Surendranagar", "Rajkot", "Jamnagar", "Junagadh", "Amreli", "Bhavnagar", "Anand", "Kheda", "Panchmahal", "Dahod", "Vadodara", "Chhota Udaipur", "Bharuch", "Bardoli", "Surat", "Navsari", "Valsad"],
+        "Haryana": ["Ambala", "Kurukshetra", "Sirsa", "Hisar", "Karnal", "Sonipat", "Rohtak", "Bhiwani-Mahendragarh", "Gurgaon", "Faridabad"],
+        "Himachal Pradesh": ["Kangra", "Mandi", "Hamirpur", "Shimla"],
+        "Jharkhand": ["Rajmahal", "Dumka", "Godda", "Chatra", "Koderma", "Giridih", "Dhanbad", "Ranchi", "Jamshedpur", "Singhbhum", "Khunti", "Lohardaga", "Palamau", "Hazaribagh"],
+        "Karnataka": ["Chikkodi", "Belgaum", "Bagalkot", "Bijapur", "Gulbarga", "Raichur", "Bidar", "Koppal", "Bellary", "Haveri", "Dharwad", "Uttara Kannada", "Davanagere", "Shimoga", "Udupi Chikmagalur", "Hassan", "Dakshina Kannada", "Chitradurga", "Tumkur", "Mandya", "Mysore", "Chamarajanagar", "Bangalore Rural", "Bangalore North", "Bangalore Central", "Bangalore South", "Chikkallapur", "Kolar"],
+        "Kerala": ["Kasaragod", "Kannur", "Vatakara", "Wayanad", "Kozhikode", "Malappuram", "Ponnani", "Palakkad", "Alathur", "Thrissur", "Chalakudy", "Ernakulam", "Idukki", "Kottayam", "Alappuzha", "Mavelikkara", "Pathanamthitta", "Kollam", "Attingal", "Thiruvananthapuram"],
+        "Madhya Pradesh": ["Morena", "Bhind", "Gwalior", "Guna", "Sagar", "Tikamgarh", "Damoh", "Khajuraho", "Satna", "Rewa", "Sidhi", "Shahdol", "Jabalpur", "Mandla", "Balaghat", "Chhindwara", "Hoshangabad", "Vidisha", "Bhopal", "Rajgarh", "Dewas", "Ujjain", "Mandsaur", "Ratlam", "Dhar", "Indore", "Khargone", "Khandwa", "Betul"],
+        "Maharashtra": ["Nandurbar", "Dhule", "Jalgaon", "Raver", "Buldhana", "Akola", "Amravati", "Wardha", "Ramtek", "Nagpur", "Bhandara-Gondiya", "Gadchiroli-Chimur", "Chandrapur", "Yavatmal-Washim", "Hingoli", "Nanded", "Parbhani", "Malsiras", "Beed", "Osmanabad", "Latur", "Solapur", "Madha", "Sangli", "Satara", "Ratnagiri-Sindhudurg", "Kolhapur", "Hatkanangle", "Nashik", "Dindori", "Palghar", "Bhiwandi", "Kalyan", "Thane", "Mumbai North", "Mumbai North West", "Mumbai North Central", "Mumbai North East", "Mumbai South Central", "Mumbai South", "Raigad", "Maval", "Pune", "Baramati", "Shirur", "Ahmednagar", "Shirdi", "Sambhajinagar"],
+        "Manipur": ["Inner Manipur", "Outer Manipur"],
+        "Meghalaya": ["Shillong", "Tura"],
+        "Mizoram": ["Mizoram"],
+        "Nagaland": ["Nagaland"],
+        "Odisha": ["Bargarh", "Sundargarh", "Sambalpur", "Keonjhar", "Mayurbhanj", "Balasore", "Bhadrak", "Jajpur", "Dhenkanal", "Cuttack", "Kendrapara", "Jagatsinghpur", "Puri", "Bhubaneswar", "Aska", "Berhampur", "Koraput", "Nowrangpur", "Kalahandi", "Phulbani", "Bolangir"],
+        "Punjab": ["Gurdaspur", "Amritsar", "Khadoor Sahib", "Jalandhar", "Hoshiarpur", "Anandpur Sahib", "Ludhiana", "Fatehgarh Sahib", "Faridkot", "Firozpur", "Bathinda", "Sangrur", "Patiala"],
+        "Rajasthan": ["Ganganagar", "Bikaner", "Churu", "Jhunjhunu", "Sikar", "Jaipur Rural", "Jaipur", "Alwar", "Bharatpur", "Karauli-Dholpur", "Dausa", "Tonk-Sawai Madhopur", "Ajmer", "Nagaur", "Pali", "Jodhpur", "Barmer", "Jalore", "Udaipur", "Banswara", "Chittorgarh", "Rajsamand", "Bhilwara", "Kota", "Jhalawar-Baran"],
+        "Sikkim": ["Sikkim"],
+        "Tamil Nadu": ["Tiruvallur", "Chennai North", "Chennai South", "Chennai Central", "Sriperumbudur", "Kancheepuram", "Arakkonam", "Vellore", "Tirupattur", "Ranipet", "Krishnagiri", "Dharmapuri", "Tiruvannamalai", "Arani", "Viluppuram", "Kallakurichi", "Salem", "Namakkal", "Erode", "Tiruppur", "Nilgiris", "Coimbatore", "Pollachi", "Dindigul", "Karur", "Tiruchirappalli", "Perambalur", "Cuddalore", "Chidambaram", "Mayiladuthurai", "Nagapattinam", "Thanjavur", "Sivaganga", "Madurai", "Theni", "Virudhunagar", "Ramanathapuram", "Thoothukkudi", "Tenkasi", "Tirunelveli", "Kanniyakumari"],
+        "Telangana": ["Adilabad", "Peddapalle", "Karimnagar", "Nizamabad", "Zahirabad", "Medak", "Malkajgiri", "Secunderabad", "Hyderabad", "Chevella", "Mahbubnagar", "Nagarkurnool", "Nalgonda", "Bhongir", "Warangal", "Mahabubabad", "Khammam"],
+        "Tripura": ["Tripura West", "Tripura East"],
+        "Uttar Pradesh": ["Saharanpur", "Kairana", "Muzaffarnagar", "Bijnor", "Nagina", "Moradabad", "Rampur", "Sambhal", "Amroha", "Meerut", "Baghpat", "Ghaziabad", "Gautam Buddha Nagar", "Bulandshahr", "Aligarh", "Hathras", "Mathura", "Agra", "Fatehpur Sikri", "Firozabad", "Mainpuri", "Etah", "Badaun", "Aonla", "Bareilly", "Pilibhit", "Shahjahanpur", "Kheri", "Dhaurahra", "Sitapur", "Hardoi", "Misrikh", "Unnao", "Lucknow", "Rae Bareli", "Amethi", "Sultanpur", "Pratapgarh", "Farrukhabad", "Etawah", "Kannauj", "Kanpur", "Akbarpur", "Jalaun", "Jhansi", "Hamirpur", "Banda", "Fatehpur", "Kaushambi", "Phulpur", "Allahabad", "Barabanki", "Ayodhya", "Ambedkar Nagar", "Bahraich", "Kaiserganj", "Shrawasti", "Gonda", "Domariyaganj", "Basti", "Sant Kabir Nagar", "Maharajganj", "Gorakhpur", "Kushi Nagar", "Deoria", "Bansgaon", "Lalganj", "Azamgarh", "Ghosi", "Salempur", "Ballia", "Jaunpur", "Machhlishahr", "Ghazipur", "Chandauli", "Varanasi", "Bhadohi", "Mirzapur", "Robertsganj"],
+        "Uttarakhand": ["Tehri Garhwal", "Garhwal", "Almora", "Nainital-Udhamsingh Nagar", "Hardwar"],
+        "West Bengal": ["Cooch Behar", "Alipurduars", "Jalpaiguri", "Darjeeling", "Raiganj", "Balurghat", "Maldaha Uttar", "Maldaha Dakshin", "Jangipur", "Baharampur", "Murshidabad", "Krishnanagar", "Ranaghat", "Bangaon", "Barrackpur", "Dum Dum", "Barasat", "Basirhat", "Jaynagar", "Mathurapur", "Diamond Harbour", "Jadavpur", "Kolkata Dakshin", "Kolkata Uttar", "Howrah", "Uluberia", "Sreerampur", "Hooghly", "Arambag", "Tamluk", "Kanthi", "Ghatal", "Jhargram", "Medinipur", "Purulia", "Bankura", "Bishnupur", "Bardhaman Purba", "Bardhaman-Durgapur", "Asansol", "Bolpur", "Birbhum"],
+        "Andaman and Nicobar Islands": ["Andaman and Nicobar Islands"],
+        "Chandigarh": ["Chandigarh"],
+        "Dadra and Nagar Haveli and Daman and Diu": ["Dadra and Nagar Haveli and Daman and Diu"],
+        "Delhi": ["Chandni Chowk", "North East Delhi", "East Delhi", "New Delhi", "North West Delhi", "West Delhi", "South Delhi"],
+        "Jammu and Kashmir": ["Baramulla", "Srinagar", "Anantnag-Rajouri", "Udhampur", "Jammu"],
+        "Ladakh": ["Ladakh"],
+        "Lakshadweep": ["Lakshadweep"],
+        "Puducherry": ["Puducherry"]
+    };
+
+    function populateStates() {
+        const stateSelect = document.getElementById('mpState');
+        const states = Object.keys(STATE_CONSTITUENCIES).sort();
+        states.forEach(state => {
+            const opt = document.createElement('option');
+            opt.value = state;
+            opt.textContent = state;
+            stateSelect.appendChild(opt);
+        });
+    }
+
+    function toggleConstituency() {
+        const house = document.getElementById('mpHouse').value;
+        const group = document.getElementById('constituencyGroup');
+        const consSelect = document.getElementById('mpConstituency');
+        if (house === 'Rajya Sabha') {
+            group.style.display = 'none';
+            consSelect.removeAttribute('required');
+        } else {
+            group.style.display = 'block';
+            consSelect.setAttribute('required', 'required');
+            updateConstituencies();
+        }
+    }
+
+    function updateConstituencies() {
+        const state = document.getElementById('mpState').value;
+        const consSelect = document.getElementById('mpConstituency');
+        const house = document.getElementById('mpHouse').value;
+
+        // Clear existing
+        consSelect.innerHTML = '<option value="">Select Constituency</option>';
+
+        if (state && STATE_CONSTITUENCIES[state] && house === 'Lok Sabha') {
+            STATE_CONSTITUENCIES[state].sort().forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                consSelect.appendChild(opt);
+            });
+        }
+    }
+
     // --- Auto-open first bill on load ---
     document.addEventListener('DOMContentLoaded', () => {
+        populateStates();
+        toggleConstituency(); // Initial state
+
         const firstBillRow = document.querySelector('#billsTableBody tr');
         if (firstBillRow) {
             const billId = firstBillRow.getAttribute('data-id');
