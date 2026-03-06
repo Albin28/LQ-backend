@@ -6,16 +6,14 @@
 <div class="container">
     <!-- Hero Section -->
     <section class="hero-section">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div class="hero-header-flex">
             <div>
                 <h1 class="hero-title">Admin Command Center</h1>
                 <p class="hero-subtitle">
                     Manage the LegisQ database. Use the tabs below to switch between Bills and MPs.
                 </p>
             </div>
-            <button class="btn btn-secondary"
-                style="background: rgba(198, 40, 40, 0.1); color: #ef5350; border: 1px solid rgba(198, 40, 40, 0.2);"
-                onclick="resetDatabase()">Reset Database</button>
+            <button class="btn btn-secondary btn-reset" onclick="resetDatabase()">Reset Database</button>
         </div>
     </section>
 
@@ -83,12 +81,20 @@
                                     <button class="btn-icon" onclick="deleteBill('{{ bill.id }}')">🗑️</button>
                                 </td>
                             </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="empty-table-cell">
+                                    No bills found in the database.<br>
+                                    <small>Use <code>bulk_upload.py</code> locally to add new bills.</small>
+                                </td>
+                            </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
+        <!-- End of Bills Tab -->
     </div>
 
     <!-- MPs Tab -->
@@ -183,6 +189,24 @@
 
 <style>
     /* Admin Page Specific Styles */
+    .hero-header-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .btn-reset {
+        background: rgba(198, 40, 40, 0.1) !important;
+        color: #ef5350 !important;
+        border: 1px solid rgba(198, 40, 40, 0.2) !important;
+    }
+
+    .empty-table-cell {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+    }
+
     .tabs {
         display: flex;
         gap: 0.5rem;

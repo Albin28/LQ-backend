@@ -18,18 +18,12 @@
     <!-- Floating Glass Navigation -->
     <div class="nav-wrapper">
         <nav class="glass-nav">
-            <a href="{{ url_for('home') }}" class="nav-brand">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-brand">
                 <span class="logo-icon">🏛️</span> LegisQ
             </a>
 
-            <div class="nav-links">
-                <a href="{{ url_for('home') }}"
-                    class="nav-link {% if request.path == url_for('home') %}active{% endif %}">Bills</a>
-                <a href="{{ url_for('mps_dashboard') }}"
-                    class="nav-link {% if request.path == url_for('mps_dashboard') %}active{% endif %}">MPs</a>
-                <a href="{{ url_for('current_affairs') }}"
-                    class="nav-link {% if request.path == url_for('current_affairs') %}active{% endif %}">News</a>
-            </div>
+            <!-- Removed nav-links for admin app per user request -->
+            <div class="nav-links"></div>
 
             {% if session.get('user') and session.get('id_token') %}
             <div class="nav-auth">

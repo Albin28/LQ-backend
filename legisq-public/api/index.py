@@ -21,16 +21,34 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "1230984576-poda-patti-nayyinte-m
 
 # --- FIREBASE SETUP ---
 db = None
+bucket = None
+firebase_diagnostic = {"status": "Starting", "errors": []}
+
 try:
     if os.getenv('VERCEL') == '1' or os.getenv('VERCEL_ENV'):
+        firebase_diagnostic["env"] = "Vercel"
         cert_json_str = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY')
-        cert_json = json.loads(cert_json_str)
+        if not cert_json_str:
+            raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY is missing from environment variables.")
+        
+        firebase_diagnostic["key_length"] = len(cert_json_str)
+        try:
+            cert_json = json.loads(cert_json_str)
+            firebase_diagnostic["json_parse"] = "Success"
+        except json.JSONDecodeError as je:
+            firebase_diagnostic["json_parse"] = f"Failed: {je}"
+            raise je
+
         cred = credentials.Certificate(cert_json)
         project_id = cert_json.get('project_id')
         bucket_name = os.getenv('FIREBASE_STORAGE_BUCKET') or f"{project_id}.appspot.com"
     else:
-        cred = credentials.Certificate("ServiceAccountKey.json")
-        with open("ServiceAccountKey.json") as f:
+        firebase_diagnostic["env"] = "Local"
+        cred_path = "ServiceAccountKey.json"
+        if not os.path.exists(cred_path):
+             raise FileNotFoundError(f"{cred_path} not found.")
+        cred = credentials.Certificate(cred_path)
+        with open(cred_path) as f:
             cert_json = json.load(f)
         project_id = cert_json.get('project_id')
         bucket_name = os.getenv('FIREBASE_STORAGE_BUCKET') or f"{project_id}.appspot.com"
@@ -39,17 +57,25 @@ try:
         firebase_admin.initialize_app(cred, {'storageBucket': bucket_name})
     
     db = firestore.client()
+    firebase_diagnostic["status"] = "Connected"
+    
     # Bucket initialization check
     try:
         bucket = storage.bucket()
-        bucket.get_logging() # Test access
-        print("✅ Firebase connected successfully (Public Mode with Storage).")
-    except Exception:
-        print("⚠️ Warning: Firebase Storage bucket not found or inaccessible. PDFs will not be downloadable.")
+        # Non-destructive check
+        bucket.get_logging() 
+        firebase_diagnostic["storage"] = "Connected"
+    except Exception as se:
+        firebase_diagnostic["storage"] = f"Warning: {se}"
         bucket = None
+
 except Exception as e:
-    print(f"❌ Firebase connection error: {e}")
-    app.config['FIREBASE_ERROR'] = str(e)
+    error_msg = f"Firebase initialization failed: {e}"
+    print(f"❌ {error_msg}")
+    firebase_diagnostic["status"] = "Failed"
+    firebase_diagnostic["errors"].append(str(e))
+    app.config['FIREBASE_ERROR'] = error_msg
+    app.config['FIREBASE_DIAGNOSTIC'] = firebase_diagnostic
 
 # --- RSS FEED SETUP ---
 RSS_FEEDS = [
@@ -121,8 +147,23 @@ def serialize_generic_doc(doc):
 @app.route('/')
 def home():
     if db is None:
-        error_detail = app.config.get('FIREBASE_ERROR', 'Unknown error')
-        return f"<h1>Database not connected</h1><p>{error_detail}</p>", 500
+        diag = app.config.get('FIREBASE_DIAGNOSTIC', {})
+        error_html = f"""
+        <html>
+            <body style="font-family: sans-serif; padding: 2rem; background: #0f172a; color: #f1f5f9;">
+                <h1 style="color: #ef4444;">Database Connection Error</h1>
+                <p>The public site could not connect to Firebase. Please check your Vercel Environment Variables.</p>
+                <div style="background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">
+                    <h3>Diagnostic Info:</h3>
+                    <pre>{json.dumps(diag, indent=2)}</pre>
+                </div>
+                <p style="margin-top: 2rem; font-size: 0.9rem; color: #94a3b8;">
+                    Tip: Ensure <b>FIREBASE_SERVICE_ACCOUNT_KEY</b> is a valid JSON string without extra newlines.
+                </p>
+            </body>
+        </html>
+        """
+        return error_html, 500
     
     bills_ref = db.collection('bills').order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50)
     docs = bills_ref.stream()
