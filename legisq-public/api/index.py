@@ -143,6 +143,15 @@ def serialize_generic_doc(doc):
     data['id'] = doc.id
     return data
 
+# --- DIAGNOSTIC ROUTES ---
+@app.route('/health')
+def health():
+    return jsonify({
+        "status": "Alive",
+        "firebase": firebase_diagnostic.get("status"),
+        "vercel": os.getenv('VERCEL') == '1'
+    })
+
 # --- PUBLIC ROUTES ---
 @app.route('/')
 def home():

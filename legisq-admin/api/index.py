@@ -172,10 +172,12 @@ def add_mp():
     doc_ref.set(data)
     return jsonify(data), 201
 
-@app.route('/api/mps/<mp_id>', methods=['PUT', 'DELETE'])
+@app.route('/api/mps/<mp_id>', methods=['GET', 'PUT', 'DELETE'])
 @require_admin
 def manage_mp(mp_id):
     doc_ref = db.collection('mps').document(mp_id)
+    if request.method == 'GET':
+        return jsonify(serialize_generic_doc(doc_ref.get()))
     if request.method == 'PUT':
         doc_ref.update(request.json)
         return jsonify({"success": True})

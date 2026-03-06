@@ -502,6 +502,7 @@
         document.getElementById('mpFormTitle').innerText = 'Edit Existing MP';
         document.getElementById('mpId').value = '';
         document.getElementById('mpSession').value = '';
+        toggleConstituency();
     }
 
     async function handleMpSubmit(event) {
@@ -573,6 +574,7 @@
             document.getElementById('mpDebates').value = mp.debates;
             document.getElementById('mpSession').value = mp.session || '';
 
+            toggleConstituency();
             openTab(null, 'mpsTab'); // Switch to the MP tab
             window.scrollTo(0, 0); // Scroll to top
 
