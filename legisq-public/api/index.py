@@ -75,7 +75,7 @@ except Exception as e:
     firebase_diagnostic["status"] = "Failed"
     firebase_diagnostic["errors"].append(str(e))
     app.config['FIREBASE_ERROR'] = error_msg
-    app.config['FIREBASE_DIAGNOSTIC'] = firebase_diagnostic
+app.config['FIREBASE_DIAGNOSTIC'] = firebase_diagnostic
 
 # --- RSS FEED SETUP ---
 RSS_FEEDS = [
