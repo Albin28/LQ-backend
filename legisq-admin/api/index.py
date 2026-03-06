@@ -44,9 +44,16 @@ try:
     
     db = firestore.client()
     bucket = storage.bucket()
-    print(f"✅ Firebase (Admin) connected. Bucket: {bucket_name}")
+    # Test if bucket exists
+    try:
+        bucket.get_logging() # Simple check to see if we can access it
+        print(f"✅ Firebase (Admin) connected. Bucket: {bucket_name}")
+    except Exception:
+        print(f"⚠️ Warning: Firebase Storage bucket '{bucket_name}' not found. PDF uploads will fail, but the dashboard will work.")
+        bucket = None
 except Exception as e:
     print(f"❌ Firebase connection error: {e}")
+    bucket = None
 
 def require_admin(f):
     @wraps(f)
@@ -93,7 +100,7 @@ def login():
         if resp.ok:
             session['user'] = email
             session['id_token'] = data.get('idToken')
-            return redirect(url_for('admin_dashboard'))
+            return redirect(url_for('home'))
         flash("Invalid Credentials", "danger")
     return render_template('login.html')
 
@@ -105,10 +112,25 @@ def logout():
 @app.route('/admin')
 @app.route('/')
 @require_admin
-def admin_dashboard():
+def home():
     bills = [serialize_bill_doc(doc) for doc in db.collection('bills').stream()]
     mps = [serialize_generic_doc(doc) for doc in db.collection('mps').stream()]
     return render_template('admin.html', bills=bills, mps=mps)
+
+@app.route('/admin_dashboard')
+@require_admin
+def admin_dashboard():
+    return redirect(url_for('home'))
+
+@app.route('/mps')
+@require_admin
+def mps_dashboard():
+    return redirect(url_for('home'))
+
+@app.route('/current_affairs')
+@require_admin
+def current_affairs():
+    return redirect(url_for('home'))
 
 @app.route('/api/bills', methods=['POST'])
 @require_admin

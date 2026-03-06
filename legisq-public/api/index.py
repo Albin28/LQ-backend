@@ -39,7 +39,14 @@ try:
         firebase_admin.initialize_app(cred, {'storageBucket': bucket_name})
     
     db = firestore.client()
-    print("✅ Firebase connected successfully (Public Mode).")
+    # Bucket initialization check
+    try:
+        bucket = storage.bucket()
+        bucket.get_logging() # Test access
+        print("✅ Firebase connected successfully (Public Mode with Storage).")
+    except Exception:
+        print("⚠️ Warning: Firebase Storage bucket not found or inaccessible. PDFs will not be downloadable.")
+        bucket = None
 except Exception as e:
     print(f"❌ Firebase connection error: {e}")
     app.config['FIREBASE_ERROR'] = str(e)
