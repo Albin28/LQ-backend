@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}LegisQ - Bills Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <h1 class="hero-title">Democracy, Transparent.</h1>
+        <p class="hero-subtitle">
+            Track legislation, monitor parliamentary activity, and stay informed with real-time data from the heart of
+            Indian democracy.
+        </p>
+    </section>
+
+    <!-- Filter & Search Controls -->
+    <section class="controls-container">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search bills by title or keyword...">
+        <select id="categoryFilter" class="filter-select" title="Filter by Category">
+            <option value="all">All Categories</option>
+            <!-- Categories will be populated by JS if needed, or can be hardcoded -->
+        </select>
+        <select id="statusFilter" class="filter-select" title="Filter by Status">
+            <option value="all">All Statuses</option>
+            <option value="Assented">Assented</option>
+            <option value="Lapsed">Lapsed</option>
+        </select>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="chart-container glass-panel">
+        <h2 class="text-center chart-title">Bill Status Overview</h2>
+        <div class="chart-canvas-wrapper">
+            <canvas id="billsChart"></canvas>
+        </div>
+    </section>
+
+    <!-- Bills Grid -->
+    <section id="billsList" class="data-grid">
+        {% for bill in bills %}
+        <div class="glass-panel bill-card" data-title="{{ bill.title }}" data-category="{{ bill.category }}"
+            data-status="{{ bill.status }}">
+            <div class="card-header">
+                <h3 class="card-title">{{ bill.title }}</h3>
+                <span class="status-badge status-{{ bill.status|lower }}">{{ bill.status }}</span>
+            </div>
+            <p class="card-summary">
+                {{ bill.summary | default('No summary available.') }}
+            </p>
+            <div class="card-footer">
+                <span class="date-introduced">Introduced: {{ bill.date_introduced }}</span>
+                <a href="{{ bill.pdf_url or '#' }}" class="btn-download {% if not bill.pdf_url %}disabled{% endif %}"
+                    target="_blank" rel="noopener noreferrer">
+                    Download PDF
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="glass-panel text-center grid-full-width">
+            <h2>No Bills Found</h2>
+            <p class="text-muted">The database is currently empty or data is loading.</p>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const billsData = {{ bills|tojson }};
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const billsList = document.getElementById('billsList');
+    const allBillCards = Array.from(billsList.querySelectorAll('.bill-card'));
+
+    // --- Populate Filters ---
+    const categories = [...new Set(billsData.map(b => b.category).filter(Boolean))];
+    categories.forEach(cat => {
+        const option = new Option(cat, cat);
+        categoryFilter.add(option);
+    });
+
+    // --- Filtering Logic ---
+    function filterAndRender() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const category = categoryFilter.value;
+        const status = statusFilter.value;
+
+        allBillCards.forEach(card => {
+            const title = card.dataset.title.toLowerCase();
+            const cardCategory = card.dataset.category;
+            const cardStatus = card.dataset.status;
+
+            const matchesSearch = title.includes(searchTerm);
+            const matchesCategory = (category === 'all' || cardCategory === category);
+            const matchesStatus = (status === 'all' || cardStatus === status);
+
+            if (matchesSearch && matchesCategory && matchesStatus) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // --- Chart.js Integration ---
+    function setupChart() {
+        const ctx = document.getElementById('billsChart').getContext('2d');
+        const statusCounts = billsData.reduce((acc, bill) => {
+            const status = bill.status || 'Unknown';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {});
+
+        const colorPalette = {
+            'Introduced': { solid: 'rgba(144, 202, 249, 1)', soft: 'rgba(144, 202, 249, 0.3)' },
+            'Passed in LS': { solid: 'rgba(100, 181, 246, 1)', soft: 'rgba(100, 181, 246, 0.3)' },
+            'Passed in RS': { solid: 'rgba(66, 165, 245, 1)', soft: 'rgba(66, 165, 245, 0.3)' },
+            'Assented': { solid: 'rgba(13, 71, 161, 1)', soft: 'rgba(13, 71, 161, 0.3)' },
+            'Lapsed': { solid: 'rgba(229, 57, 53, 1)', soft: 'rgba(229, 57, 53, 0.3)' },
+            'Unknown': { solid: 'rgba(120, 144, 156, 1)', soft: 'rgba(120, 144, 156, 0.3)' }
+        };
+
+        const statusLabels = Object.keys(statusCounts);
+        const backgroundColors = statusLabels.map(label => (colorPalette[label]?.soft) || colorPalette['Unknown'].soft);
+        const borderColors = statusLabels.map(label => (colorPalette[label]?.solid) || colorPalette['Unknown'].solid);
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    label: 'Bill Status',
+                    data: Object.values(statusCounts),
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#0d47a1'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- Event Listeners ---
+    searchInput.addEventListener('input', filterAndRender);
+    categoryFilter.addEventListener('change', filterAndRender);
+    statusFilter.addEventListener('change', filterAndRender);
+
+    // --- Initial Load ---
+    if (billsData.length > 0) {
+        setupChart();
+    }
+});
+</script>
+{% endblock %}
+

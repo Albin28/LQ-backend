@@ -1,5 +1,13 @@
+.env
+ServiceAccountKey.json
 venv/
 __pycache__/
-.env
-serviceAccountKey.json
 *.pyc
+.vercel
+static/dataset/*.pdf
+static/dataset/*.xlsx
+static/dataset/*.xls
+legisq-public/ServiceAccountKey.json
+legisq-public/.env
+legisq-admin/ServiceAccountKey.json
+legisq-admin/.env

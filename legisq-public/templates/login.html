@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login - LegisQ{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="login-container">
+        <div class="glass-panel login-panel">
+            <div class="login-header">
+                <h1 class="hero-title">Admin Access</h1>
+                <p class="hero-subtitle">Enter your credentials to manage the database.</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('login') }}" class="login-form">
+                <div class="form-group">
+                    <label for="username">Email</label>
+                    <input type="email" id="username" name="username" class="form-control" required autocomplete="username">
+                </div>
+                <div class="form-group password-group">
+                    <label for="password">Password</label>
+                    <div class="password-field">
+                        <input type="password" id="password" name="password" class="form-control" required autocomplete="current-password">
+                        <button type="button" class="toggle-password" data-target="password" aria-label="Show password">Show</button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Secure Login</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const toggles = document.querySelectorAll('.toggle-password');
+    toggles.forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const targetId = toggle.getAttribute('data-target');
+            const input = document.getElementById(targetId);
+            if (!input) { return; }
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            toggle.textContent = isPassword ? 'Hide' : 'Show';
+            toggle.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+        });
+    });
+});
+</script>
+
+<style>
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+}
+.login-panel {
+    width: 100%;
+    max-width: 450px;
+    padding: 3rem;
+}
+.login-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+.login-form .form-group {
+    margin-bottom: 1.5rem;
+}
+.password-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.password-field .form-control {
+    padding-right: 5rem;
+}
+.toggle-password {
+    position: absolute;
+    right: 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--primary-blue);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.toggle-password:hover,
+.toggle-password:focus-visible {
+    text-decoration: underline;
+}
+.login-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--primary-blue);
+}
+.login-form .form-control {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    background-color: #ffffff;
+    border: 2px solid rgba(13, 71, 161, 0.15);
+    border-radius: var(--radius-md);
+    color: var(--text-dark);
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 6px 18px rgba(13, 71, 161, 0.08);
+}
+.login-form .form-control:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.18);
+}
+.login-form .btn {
+    width: 100%;
+    padding: 0.95rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border-radius: var(--radius-md);
+    background: linear-gradient(120deg, var(--primary-blue), var(--secondary-blue));
+    color: var(--text-light);
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 25px rgba(13, 71, 161, 0.25);
+}
+.login-form .btn:hover,
+.login-form .btn:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px rgba(13, 71, 161, 0.35);
+}
+.alert {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: var(--radius-md);
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.alert-danger {
+    background-color: #ffe4e6;
+    border: 1px solid #fb7185;
+    color: #b91c1c;
+}
+</style>
+{% endblock %}

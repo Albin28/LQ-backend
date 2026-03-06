@@ -1,0 +1,704 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - LegisQ{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h1 class="hero-title">Admin Command Center</h1>
+                <p class="hero-subtitle">
+                    Manage the LegisQ database. Use the tabs below to switch between Bills and MPs.
+                </p>
+            </div>
+            <button class="btn btn-secondary"
+                style="background: rgba(198, 40, 40, 0.1); color: #ef5350; border: 1px solid rgba(198, 40, 40, 0.2);"
+                onclick="resetDatabase()">Reset Database</button>
+        </div>
+    </section>
+
+    <!-- Tab Controls -->
+    <div class="tabs">
+        <button class="tab-link active" onclick="openTab(event, 'billsTab')">Manage Bills</button>
+        <button class="tab-link" onclick="openTab(event, 'mpsTab')">Manage MPs</button>
+    </div>
+
+    <!-- Bills Tab -->
+    <div id="billsTab" class="tab-content active">
+        <div class="admin-grid">
+            <!-- Edit Bill Form (Hidden by default) -->
+            <div id="billFormContainer" class="glass-panel admin-form-panel">
+                <h3 id="billFormTitle">Edit Existing Bill</h3>
+                <form id="billForm" class="admin-form">
+                    <input type="hidden" id="billId" name="id">
+                    <div class="form-group">
+                        <label for="billTitle">Title</label>
+                        <input type="text" id="billTitle" name="title" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="billStatus">Status</label>
+                        <select id="billStatus" name="status" class="form-control" required>
+                            <option value="Introduced">Introduced</option>
+                            <option value="Passed in LS">Passed in LS</option>
+                            <option value="Passed in RS">Passed in RS</option>
+                            <option value="Assented">Assented</option>
+                            <option value="Lapsed">Lapsed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="billSummary">Summary</label>
+                        <textarea id="billSummary" name="summary" class="form-control" rows="4"></textarea>
+                    </div>
+                    <div class="form-group" id="pdfPreviewGroup">
+                        <span class="form-label">Current PDF:</span>
+                        <a id="currentPdfLink" href="#" target="_blank" class="nav-link-inline">View Attached File</a>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Bill</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetBillForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            <!-- Bills List -->
+            <div class="glass-panel admin-list-panel">
+                <h3>Existing Bills</h3>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="billsTableBody">
+                            {% for bill in bills %}
+                            <tr data-id="{{ bill.id }}">
+                                <td>{{ bill.title }}</td>
+                                <td><span class="badge">{{ bill.status }}</span></td>
+                                <td class="action-buttons">
+                                    <button class="btn-icon" onclick="editBill('{{ bill.id }}')">✏️</button>
+                                    <button class="btn-icon" onclick="deleteBill('{{ bill.id }}')">🗑️</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MPs Tab -->
+    <div id="mpsTab" class="tab-content">
+        <div class="admin-grid">
+            <!-- Add/Edit MP Form -->
+            <div id="mpFormContainer" class="glass-panel admin-form-panel">
+                <h3 id="mpFormTitle">Edit Existing MP</h3>
+                <form id="mpForm" class="admin-form">
+                    <input type="hidden" id="mpId" name="id">
+                    <div class="form-group">
+                        <label for="mpName">Name</label>
+                        <input type="text" id="mpName" name="name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpHouse">House</label>
+                        <select id="mpHouse" name="house" class="form-control" required onchange="toggleConstituency()">
+                            <option value="Lok Sabha">Lok Sabha</option>
+                            <option value="Rajya Sabha">Rajya Sabha</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpState">State</label>
+                        <select id="mpState" name="state" class="form-control" required
+                            onchange="updateConstituencies()">
+                            <option value="">Select State</option>
+                            <!-- States will be populated by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group" id="constituencyGroup">
+                        <label for="mpConstituency">Constituency</label>
+                        <select id="mpConstituency" name="constituency" class="form-control">
+                            <option value="">Select Constituency</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mpSession">Session (e.g., 17th Lok Sabha)</label>
+                        <input type="text" id="mpSession" name="session" class="form-control"
+                            placeholder="17th Lok Sabha">
+                    </div>
+                    <div class="form-group">
+                        <label for="mpAttendance">Attendance %</label>
+                        <input type="number" id="mpAttendance" name="attendance_pct" class="form-control" step="0.1"
+                            min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="mpQuestions">Questions</label>
+                        <input type="number" id="mpQuestions" name="questions" class="form-control" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="mpDebates">Debates</label>
+                        <input type="number" id="mpDebates" name="debates" class="form-control" min="0">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save MP</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetMpForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            <!-- MPs List -->
+            <div class="glass-panel admin-list-panel">
+                <h3>Existing MPs</h3>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>State</th>
+                                <th>House</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mpsTableBody">
+                            {% for mp in mps %}
+                            <tr data-id="{{ mp.id }}">
+                                <td>{{ mp.name }}</td>
+                                <td>{{ mp.state }}</td>
+                                <td><span class="badge">{{ mp.house }}</span></td>
+                                <td class="action-buttons">
+                                    <button class="btn-icon" onclick="editMp('{{ mp.id }}')">✏️</button>
+                                    <button class="btn-icon" onclick="deleteMp('{{ mp.id }}')">🗑️</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Admin Page Specific Styles */
+    .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .tab-link {
+        padding: 0.75rem 1.5rem;
+        cursor: pointer;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1rem;
+        font-weight: 500;
+        border-bottom: 2px solid transparent;
+        transition: color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .tab-link:hover {
+        color: var(--text-primary);
+    }
+
+    .tab-link.active {
+        color: var(--text-accent);
+        border-bottom-color: var(--text-accent);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+    }
+
+    #billFormContainer {
+        display: none;
+        margin-bottom: 2rem;
+    }
+
+    .admin-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 2rem;
+    }
+
+    .admin-form-panel h3,
+    .admin-list-panel h3 {
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+
+    .admin-form .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .admin-form label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: var(--text-secondary);
+    }
+
+    .admin-form .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background-color: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        font-size: 1rem;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    #pdfPreviewGroup {
+        display: none;
+        background: rgba(13, 71, 161, 0.05);
+        padding: 0.8rem;
+        border-radius: var(--radius-sm);
+        border-left: 4px solid var(--primary-blue);
+    }
+
+    .nav-link-inline {
+        color: var(--primary-blue);
+        text-decoration: underline;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    .form-control-file {
+        width: 100%;
+        padding: 0.8rem;
+        background-color: rgba(0, 0, 0, 0.1);
+        border: 1px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        border: none;
+        font-weight: 600;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .table-container {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .admin-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .admin-table th {
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+    }
+
+    @media (max-width: 900px) {
+        .admin-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    function openTab(evt, tabName) {
+        const tabcontent = document.getElementsByClassName("tab-content");
+        for (let i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove("active");
+        }
+        const tablinks = document.getElementsByClassName("tab-link");
+        for (let i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+
+        const targetTab = document.getElementById(tabName);
+        targetTab.style.display = "block";
+        targetTab.classList.add("active");
+
+        if (evt && evt.currentTarget) {
+            evt.currentTarget.classList.add("active");
+        } else {
+            // Fallback: find the button that targets this tab
+            const btn = Array.from(tablinks).find(b => b.getAttribute('onclick').includes(tabName));
+            if (btn) btn.classList.add("active");
+        }
+    }
+
+    function resetBillForm() {
+        document.getElementById('billForm').reset();
+        document.getElementById('billFormTitle').innerText = 'Edit Existing Bill';
+        document.getElementById('billId').value = '';
+        document.getElementById('pdfPreviewGroup').style.display = 'none';
+        document.getElementById('billFormContainer').style.display = 'none';
+    }
+
+    async function handleBillSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const billId = form.querySelector('#billId').value;
+        const url = billId ? `/api/bills/${billId}` : '/api/bills';
+        // For file uploads, we must use PUT for updates, not a generic POST
+        const method = billId ? 'PUT' : 'POST';
+
+        const formData = new FormData(form);
+        // No longer converting to JSON, sending FormData directly
+
+        try {
+            const response = await fetch(url, {
+                method: method,
+                body: formData // Send FormData directly
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to save bill');
+            }
+
+            const savedBill = await response.json();
+
+            if (billId) { // Update existing row
+                const row = document.querySelector(`tr[data-id="${billId}"]`);
+                row.cells[0].innerText = savedBill.title;
+                row.cells[1].innerHTML = `<span class="badge">${savedBill.status}</span>`;
+                // Since we only edit, we expect billId to always exist
+                console.warn('Bill updated but no ID found in form - this should not happen in edit-only mode.');
+            }
+
+            resetBillForm();
+            alert('Bill saved successfully!');
+
+        } catch (error) {
+            console.error('Submit Error:', error);
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    async function editBill(id) {
+        try {
+            const response = await fetch(`/api/bills/${id}`);
+            if (!response.ok) throw new Error('Failed to fetch bill data');
+
+            const bill = await response.json();
+            document.getElementById('billFormTitle').innerText = 'Edit Bill: ' + bill.title;
+            document.getElementById('billId').value = bill.id;
+            document.getElementById('billFormContainer').style.display = 'block';
+            document.getElementById('billTitle').value = bill.title;
+            document.getElementById('billStatus').value = bill.status;
+            document.getElementById('billSummary').value = bill.summary || '';
+
+            if (bill.pdf_url) {
+                const previewGroup = document.getElementById('pdfPreviewGroup');
+                const link = document.getElementById('currentPdfLink');
+                link.href = bill.pdf_url;
+                previewGroup.style.display = 'block';
+                // If the URL doesn't look like a Firebase Storage URL, populate manual field
+                if (!bill.pdf_url.includes('firebasestorage.googleapis.com')) {
+                    document.getElementById('manualPdfUrl').value = bill.pdf_url;
+                } else {
+                    document.getElementById('manualPdfUrl').value = '';
+                }
+            } else {
+                document.getElementById('pdfPreviewGroup').style.display = 'none';
+                document.getElementById('manualPdfUrl').value = '';
+            }
+
+            window.scrollTo(0, 0); // Scroll to top to see the form
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    async function deleteBill(id) {
+        if (!confirm('Are you sure you want to delete this bill? This action cannot be undone.')) {
+            return;
+        }
+        try {
+            const response = await fetch(`/api/bills/${id}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Failed to delete bill');
+
+            document.querySelector(`tr[data-id="${id}"]`).remove();
+            alert('Bill deleted successfully.');
+
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    document.getElementById('billForm').addEventListener('submit', handleBillSubmit);
+
+    // --- MP Management ---
+    function resetMpForm() {
+        document.getElementById('mpForm').reset();
+        document.getElementById('mpFormTitle').innerText = 'Edit Existing MP';
+        document.getElementById('mpId').value = '';
+        document.getElementById('mpSession').value = '';
+    }
+
+    async function handleMpSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const mpId = form.querySelector('#mpId').value;
+        const url = mpId ? `/api/mps/${mpId}` : '/api/mps';
+        const method = mpId ? 'PUT' : 'POST';
+
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to save MP');
+            }
+
+            const savedMp = await response.json();
+
+            if (mpId) { // Update row
+                const row = document.querySelector(`#mpsTableBody tr[data-id="${mpId}"]`);
+                row.cells[0].innerText = savedMp.name;
+                row.cells[1].innerText = savedMp.state;
+                row.cells[2].innerHTML = `<span class="badge">${savedMp.house}</span>`;
+            } else { // Add new row
+                const newRow = `
+                <tr data-id="${savedMp.id}">
+                    <td>${savedMp.name}</td>
+                    <td>${savedMp.state}</td>
+                    <td><span class="badge">${savedMp.house}</span></td>
+                    <td class="action-buttons">
+                        <button class="btn-icon" onclick="editMp('${savedMp.id}')">✏️</button>
+                        <button class="btn-icon" onclick="deleteMp('${savedMp.id}')">🗑️</button>
+                    </td>
+                </tr>`;
+                document.getElementById('mpsTableBody').insertAdjacentHTML('afterbegin', newRow);
+            }
+
+            resetMpForm();
+            alert('MP saved successfully!');
+
+        } catch (error) {
+            console.error('MP Submit Error:', error);
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    async function editMp(id) {
+        try {
+            const response = await fetch(`/api/mps/${id}`);
+            if (!response.ok) throw new Error('Failed to fetch MP data');
+
+            const mp = await response.json();
+            document.getElementById('mpFormTitle').innerText = 'Edit MP';
+            document.getElementById('mpId').value = mp.id;
+            document.getElementById('mpName').value = mp.name;
+            document.getElementById('mpState').value = mp.state;
+            document.getElementById('mpConstituency').value = mp.constituency;
+            document.getElementById('mpHouse').value = mp.house;
+            document.getElementById('mpAttendance').value = mp.attendance_pct;
+            document.getElementById('mpQuestions').value = mp.questions;
+            document.getElementById('mpDebates').value = mp.debates;
+            document.getElementById('mpSession').value = mp.session || '';
+
+            openTab(null, 'mpsTab'); // Switch to the MP tab
+            window.scrollTo(0, 0); // Scroll to top
+
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    async function deleteMp(id) {
+        if (!confirm('Are you sure you want to delete this MP?')) {
+            return;
+        }
+        try {
+            const response = await fetch(`/api/mps/${id}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Failed to delete MP');
+
+            document.querySelector(`#mpsTableBody tr[data-id="${id}"]`).remove();
+            alert('MP deleted successfully.');
+
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    document.getElementById('mpForm').addEventListener('submit', handleMpSubmit);
+
+    // --- MP Management Data & Logic ---
+    const STATE_CONSTITUENCIES = {
+        "Andhra Pradesh": ["Araku", "Srikakulam", "Vizianagaram", "Visakhapatnam", "Anakapalli", "Kakinada", "Amalapuram", "Rajahmundry", "Narsapuram", "Eluru", "Machilipatnam", "Vijayawada", "Guntur", "Narasaraopet", "Bapatla", "Ongole", "Nandyal", "Kurnool", "Anantapur", "Hindupur", "Kadapa", "Nellore", "Tirupati", "Rajampet", "Chittoor"],
+        "Arunachal Pradesh": ["Arunachal West", "Arunachal East"],
+        "Assam": ["Karimganj", "Silchar", "Autonomous District", "Dhubri", "Kokrajhar", "Barpeta", "Gauhati", "Mangaldoi", "Tezpur", "Nowgong", "Kaliabor", "Jorhat", "Dibrugarh", "Lakhimpur"],
+        "Bihar": ["Valmiki Nagar", "Paschim Champaran", "Purvi Champaran", "Sheohar", "Sitamarhi", "Madhubani", "Jhanjharpur", "Supaul", "Araria", "Kishanganj", "Katihar", "Purnia", "Madhepura", "Gopalganj", "Siwan", "Maharajganj", "Saran", "Hajipur", "Vaishali", "Muzaffarpur", "Vaishali", "Gopalganj", "Siwan", "Saran", "Hajipur", "Ujiarpur", "Samastipur", "Begusarai", "Khagaria", "Bhagalpur", "Banka", "Munger", "Nalanda", "Patna Sahib", "Pataliputra", "Arrah", "Buxar", "Sasaram", "Karakat", "Jahanabad", "Aurangabad", "Gaya", "Nawada", "Jamui"],
+        "Chhattisgarh": ["Surguja", "Raigarh", "Janjgir-Champa", "Korba", "Bilaspur", "Rajnandgaon", "Durg", "Raipur", "Mahasamund", "Bastar", "Kanker"],
+        "Goa": ["North Goa", "South Goa"],
+        "Gujarat": ["Kutch", "Banaskantha", "Patan", "Mahesana", "Sabarkantha", "Gandhinagar", "Ahmedabad East", "Ahmedabad West", "Surendranagar", "Rajkot", "Jamnagar", "Junagadh", "Amreli", "Bhavnagar", "Anand", "Kheda", "Panchmahal", "Dahod", "Vadodara", "Chhota Udaipur", "Bharuch", "Bardoli", "Surat", "Navsari", "Valsad"],
+        "Haryana": ["Ambala", "Kurukshetra", "Sirsa", "Hisar", "Karnal", "Sonipat", "Rohtak", "Bhiwani-Mahendragarh", "Gurgaon", "Faridabad"],
+        "Himachal Pradesh": ["Kangra", "Mandi", "Hamirpur", "Shimla"],
+        "Jharkhand": ["Rajmahal", "Dumka", "Godda", "Chatra", "Koderma", "Giridih", "Dhanbad", "Ranchi", "Jamshedpur", "Singhbhum", "Khunti", "Lohardaga", "Palamau", "Hazaribagh"],
+        "Karnataka": ["Chikkodi", "Belgaum", "Bagalkot", "Bijapur", "Gulbarga", "Raichur", "Bidar", "Koppal", "Bellary", "Haveri", "Dharwad", "Uttara Kannada", "Davanagere", "Shimoga", "Udupi Chikmagalur", "Hassan", "Dakshina Kannada", "Chitradurga", "Tumkur", "Mandya", "Mysore", "Chamarajanagar", "Bangalore Rural", "Bangalore North", "Bangalore Central", "Bangalore South", "Chikkallapur", "Kolar"],
+        "Kerala": ["Kasaragod", "Kannur", "Vatakara", "Wayanad", "Kozhikode", "Malappuram", "Ponnani", "Palakkad", "Alathur", "Thrissur", "Chalakudy", "Ernakulam", "Idukki", "Kottayam", "Alappuzha", "Mavelikkara", "Pathanamthitta", "Kollam", "Attingal", "Thiruvananthapuram"],
+        "Madhya Pradesh": ["Morena", "Bhind", "Gwalior", "Guna", "Sagar", "Tikamgarh", "Damoh", "Khajuraho", "Satna", "Rewa", "Sidhi", "Shahdol", "Jabalpur", "Mandla", "Balaghat", "Chhindwara", "Hoshangabad", "Vidisha", "Bhopal", "Rajgarh", "Dewas", "Ujjain", "Mandsaur", "Ratlam", "Dhar", "Indore", "Khargone", "Khandwa", "Betul"],
+        "Maharashtra": ["Nandurbar", "Dhule", "Jalgaon", "Raver", "Buldhana", "Akola", "Amravati", "Wardha", "Ramtek", "Nagpur", "Bhandara-Gondiya", "Gadchiroli-Chimur", "Chandrapur", "Yavatmal-Washim", "Hingoli", "Nanded", "Parbhani", "Malsiras", "Beed", "Osmanabad", "Latur", "Solapur", "Madha", "Sangli", "Satara", "Ratnagiri-Sindhudurg", "Kolhapur", "Hatkanangle", "Nashik", "Dindori", "Palghar", "Bhiwandi", "Kalyan", "Thane", "Mumbai North", "Mumbai North West", "Mumbai North Central", "Mumbai North East", "Mumbai South Central", "Mumbai South", "Raigad", "Maval", "Pune", "Baramati", "Shirur", "Ahmednagar", "Shirdi", "Sambhajinagar"],
+        "Manipur": ["Inner Manipur", "Outer Manipur"],
+        "Meghalaya": ["Shillong", "Tura"],
+        "Mizoram": ["Mizoram"],
+        "Nagaland": ["Nagaland"],
+        "Odisha": ["Bargarh", "Sundargarh", "Sambalpur", "Keonjhar", "Mayurbhanj", "Balasore", "Bhadrak", "Jajpur", "Dhenkanal", "Cuttack", "Kendrapara", "Jagatsinghpur", "Puri", "Bhubaneswar", "Aska", "Berhampur", "Koraput", "Nowrangpur", "Kalahandi", "Phulbani", "Bolangir"],
+        "Punjab": ["Gurdaspur", "Amritsar", "Khadoor Sahib", "Jalandhar", "Hoshiarpur", "Anandpur Sahib", "Ludhiana", "Fatehgarh Sahib", "Faridkot", "Firozpur", "Bathinda", "Sangrur", "Patiala"],
+        "Rajasthan": ["Ganganagar", "Bikaner", "Churu", "Jhunjhunu", "Sikar", "Jaipur Rural", "Jaipur", "Alwar", "Bharatpur", "Karauli-Dholpur", "Dausa", "Tonk-Sawai Madhopur", "Ajmer", "Nagaur", "Pali", "Jodhpur", "Barmer", "Jalore", "Udaipur", "Banswara", "Chittorgarh", "Rajsamand", "Bhilwara", "Kota", "Jhalawar-Baran"],
+        "Sikkim": ["Sikkim"],
+        "Tamil Nadu": ["Tiruvallur", "Chennai North", "Chennai South", "Chennai Central", "Sriperumbudur", "Kancheepuram", "Arakkonam", "Vellore", "Tirupattur", "Ranipet", "Krishnagiri", "Dharmapuri", "Tiruvannamalai", "Arani", "Viluppuram", "Kallakurichi", "Salem", "Namakkal", "Erode", "Tiruppur", "Nilgiris", "Coimbatore", "Pollachi", "Dindigul", "Karur", "Tiruchirappalli", "Perambalur", "Cuddalore", "Chidambaram", "Mayiladuthurai", "Nagapattinam", "Thanjavur", "Sivaganga", "Madurai", "Theni", "Virudhunagar", "Ramanathapuram", "Thoothukkudi", "Tenkasi", "Tirunelveli", "Kanniyakumari"],
+        "Telangana": ["Adilabad", "Peddapalle", "Karimnagar", "Nizamabad", "Zahirabad", "Medak", "Malkajgiri", "Secunderabad", "Hyderabad", "Chevella", "Mahbubnagar", "Nagarkurnool", "Nalgonda", "Bhongir", "Warangal", "Mahabubabad", "Khammam"],
+        "Tripura": ["Tripura West", "Tripura East"],
+        "Uttar Pradesh": ["Saharanpur", "Kairana", "Muzaffarnagar", "Bijnor", "Nagina", "Moradabad", "Rampur", "Sambhal", "Amroha", "Meerut", "Baghpat", "Ghaziabad", "Gautam Buddha Nagar", "Bulandshahr", "Aligarh", "Hathras", "Mathura", "Agra", "Fatehpur Sikri", "Firozabad", "Mainpuri", "Etah", "Badaun", "Aonla", "Bareilly", "Pilibhit", "Shahjahanpur", "Kheri", "Dhaurahra", "Sitapur", "Hardoi", "Misrikh", "Unnao", "Lucknow", "Rae Bareli", "Amethi", "Sultanpur", "Pratapgarh", "Farrukhabad", "Etawah", "Kannauj", "Kanpur", "Akbarpur", "Jalaun", "Jhansi", "Hamirpur", "Banda", "Fatehpur", "Kaushambi", "Phulpur", "Allahabad", "Barabanki", "Ayodhya", "Ambedkar Nagar", "Bahraich", "Kaiserganj", "Shrawasti", "Gonda", "Domariyaganj", "Basti", "Sant Kabir Nagar", "Maharajganj", "Gorakhpur", "Kushi Nagar", "Deoria", "Bansgaon", "Lalganj", "Azamgarh", "Ghosi", "Salempur", "Ballia", "Jaunpur", "Machhlishahr", "Ghazipur", "Chandauli", "Varanasi", "Bhadohi", "Mirzapur", "Robertsganj"],
+        "Uttarakhand": ["Tehri Garhwal", "Garhwal", "Almora", "Nainital-Udhamsingh Nagar", "Hardwar"],
+        "West Bengal": ["Cooch Behar", "Alipurduars", "Jalpaiguri", "Darjeeling", "Raiganj", "Balurghat", "Maldaha Uttar", "Maldaha Dakshin", "Jangipur", "Baharampur", "Murshidabad", "Krishnanagar", "Ranaghat", "Bangaon", "Barrackpur", "Dum Dum", "Barasat", "Basirhat", "Jaynagar", "Mathurapur", "Diamond Harbour", "Jadavpur", "Kolkata Dakshin", "Kolkata Uttar", "Howrah", "Uluberia", "Sreerampur", "Hooghly", "Arambag", "Tamluk", "Kanthi", "Ghatal", "Jhargram", "Medinipur", "Purulia", "Bankura", "Bishnupur", "Bardhaman Purba", "Bardhaman-Durgapur", "Asansol", "Bolpur", "Birbhum"],
+        "Andaman and Nicobar Islands": ["Andaman and Nicobar Islands"],
+        "Chandigarh": ["Chandigarh"],
+        "Dadra and Nagar Haveli and Daman and Diu": ["Dadra and Nagar Haveli and Daman and Diu"],
+        "Delhi": ["Chandni Chowk", "North East Delhi", "East Delhi", "New Delhi", "North West Delhi", "West Delhi", "South Delhi"],
+        "Jammu and Kashmir": ["Baramulla", "Srinagar", "Anantnag-Rajouri", "Udhampur", "Jammu"],
+        "Ladakh": ["Ladakh"],
+        "Lakshadweep": ["Lakshadweep"],
+        "Puducherry": ["Puducherry"]
+    };
+
+    function populateStates() {
+        const stateSelect = document.getElementById('mpState');
+        const states = Object.keys(STATE_CONSTITUENCIES).sort();
+        states.forEach(state => {
+            const opt = document.createElement('option');
+            opt.value = state;
+            opt.textContent = state;
+            stateSelect.appendChild(opt);
+        });
+    }
+
+    function toggleConstituency() {
+        const house = document.getElementById('mpHouse').value;
+        const group = document.getElementById('constituencyGroup');
+        const consSelect = document.getElementById('mpConstituency');
+        if (house === 'Rajya Sabha') {
+            group.style.display = 'none';
+            consSelect.removeAttribute('required');
+        } else {
+            group.style.display = 'block';
+            consSelect.setAttribute('required', 'required');
+            updateConstituencies();
+        }
+    }
+
+    function updateConstituencies() {
+        const state = document.getElementById('mpState').value;
+        const consSelect = document.getElementById('mpConstituency');
+        const house = document.getElementById('mpHouse').value;
+
+        // Clear existing
+        consSelect.innerHTML = '<option value="">Select Constituency</option>';
+
+        if (state && STATE_CONSTITUENCIES[state] && house === 'Lok Sabha') {
+            STATE_CONSTITUENCIES[state].sort().forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                consSelect.appendChild(opt);
+            });
+        }
+    }
+
+    async function resetDatabase() {
+        const confirmed = confirm("⚠️ CRITICAL WARNING: This will DESTRUCTIVELY DELETE all Bills, all MPs, and all uploaded PDF files from Firebase Cloud Storage. \n\nThis action CANNOT BE UNDONE. Are you absolutely sure?");
+
+        if (!confirmed) return;
+
+        const doubleConfirmed = confirm("LAST CHANCE: Are you really sure you want to wipe the entire database?");
+        if (!doubleConfirmed) return;
+
+        try {
+            const response = await fetch('/api/admin/reset_database', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to reset database');
+            }
+
+            const result = await response.json();
+            alert("✅ Success: " + result.message);
+            window.location.reload(); // Refresh to show empty tables
+
+        } catch (error) {
+            console.error('Reset Error:', error);
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    // --- Auto-open first bill on load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        populateStates();
+        toggleConstituency(); // Initial state
+
+        const firstBillRow = document.querySelector('#billsTableBody tr');
+        if (firstBillRow) {
+            const billId = firstBillRow.getAttribute('data-id');
+            if (billId) {
+                editBill(billId);
+            }
+        }
+    });
+</script>
+{% endblock %}

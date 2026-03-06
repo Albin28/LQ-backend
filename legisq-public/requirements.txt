@@ -1,0 +1,7 @@
+Flask==3.0.0
+firebase-admin==6.2.0
+python-dotenv==1.0.0
+feedparser==6.0.10
+requests
+beautifulsoup4
+google-cloud-storage

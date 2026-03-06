@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}LegisQ - Representatives{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <h1 class="hero-title">Our Representatives</h1>
+        <p class="hero-subtitle">
+            An overview of the performance and activity of Members of Parliament.
+        </p>
+    </section>
+
+    <!-- Filter & Search Controls -->
+    <section class="controls-container">
+        <input type="text" id="searchInput" class="search-input"
+            placeholder="Search by name, state, or constituency...">
+        <select id="houseFilter" class="filter-select" title="Filter by House">
+            <option value="all">All Houses</option>
+        </select>
+        <select id="stateFilter" class="filter-select" title="Filter by State">
+            <option value="all">All States</option>
+        </select>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="chart-container glass-panel">
+        <h2 class="text-center chart-title">Top 10 MPs by Attendance</h2>
+        <canvas id="mpsChart"></canvas>
+    </section>
+
+    <!-- MPs Grid -->
+    <section id="mpsList" class="data-grid">
+        {% for mp in mps %}
+        <div class="glass-panel mp-card" data-name="{{ mp.name }}" data-state="{{ mp.state }}"
+            data-house="{{ mp.house }}" data-constituency="{{ mp.constituency }}">
+
+            <div class="mp-header">
+                <div class="mp-avatar">
+                    <span>{{ mp.name[0] }}</span>
+                </div>
+                <div>
+                    <h3 class="mp-name">{{ mp.name }}</h3>
+                    <p class="mp-details">{{ mp.constituency }}, {{ mp.state }}</p>
+                </div>
+            </div>
+
+            <div class="mp-stats">
+                <div class="stat-item">
+                    <span class="stat-value">{{ mp.attendance_pct }}%</span>
+                    <span class="stat-label">Attendance</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{ mp.questions }}</span>
+                    <span class="stat-label">Questions</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{ mp.debates }}</span>
+                    <span class="stat-label">Debates</span>
+                </div>
+            </div>
+
+            <div class="mp-footer">
+                <span class="badge">{{ mp.house }}</span>
+                <span class="session-info">{{ mp.session }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="glass-panel text-center grid-full-width">
+            <h2>No MP Data Found</h2>
+            <p class="text-muted">The database is currently empty or data is loading.</p>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+
+<style>
+    /* Additional styles for MP page specifically */
+    .mp-card {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mp-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .mp-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+
+    .mp-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .mp-details {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .mp-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 1rem;
+        border-radius: var(--radius-sm);
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-item .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-accent);
+    }
+
+    .stat-item .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+    }
+
+    .mp-footer {
+        margin-top: auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .mp-footer .badge {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 0.3rem 0.7rem;
+        border-radius: var(--radius-pill);
+        font-size: 0.75rem;
+        color: white;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const mpsData = {{ mps|tojson }};
+    const searchInput = document.getElementById('searchInput');
+    const houseFilter = document.getElementById('houseFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    const mpsList = document.getElementById('mpsList');
+    const allMpCards = Array.from(mpsList.querySelectorAll('.mp-card'));
+
+    // --- Populate Filters ---
+    const houses = [...new Set(mpsData.map(m => m.house).filter(Boolean))];
+    houses.forEach(h => houseFilter.add(new Option(h, h)));
+
+    const states = [...new Set(mpsData.map(m => m.state).filter(Boolean))];
+    states.sort().forEach(s => stateFilter.add(new Option(s, s)));
+
+    // --- Filtering Logic ---
+    function filterAndRender() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const house = houseFilter.value;
+        const state = stateFilter.value;
+
+        allMpCards.forEach(card => {
+            const name = card.dataset.name.toLowerCase();
+            const cardState = card.dataset.state.toLowerCase();
+            const cardConstituency = card.dataset.constituency.toLowerCase();
+            const cardHouse = card.dataset.house;
+
+            const matchesSearch = name.includes(searchTerm) || cardState.includes(searchTerm) || cardConstituency.includes(searchTerm);
+            const matchesHouse = (house === 'all' || cardHouse === house);
+            const matchesState = (state === 'all' || card.dataset.state === state);
+
+            if (matchesSearch && matchesHouse && matchesState) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // --- Chart.js Integration ---
+    function setupChart() {
+        const ctx = document.getElementById('mpsChart').getContext('2d');
+
+        // Sort MPs by attendance and take top 10
+        const topMps = mpsData.sort((a, b) => b.attendance_pct - a.attendance_pct).slice(0, 10);
+
+        const labels = topMps.map(mp => mp.name);
+        const data = topMps.map(mp => mp.attendance_pct);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Attendance %',
+                    data: data,
+                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                    borderColor: 'rgba(56, 189, 248, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Horizontal bar chart
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#f8fafc' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- Event Listeners ---
+    searchInput.addEventListener('input', filterAndRender);
+    houseFilter.addEventListener('change', filterAndRender);
+    stateFilter.addEventListener('change', filterAndRender);
+
+    // --- Initial Load ---
+    if (mpsData.length > 0) {
+        setupChart();
+    }
+});
+</script>
+{% endblock %}
+
