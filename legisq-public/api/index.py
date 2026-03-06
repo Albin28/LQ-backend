@@ -198,6 +198,41 @@ def current_affairs():
     news_data = get_rss_news()
     return render_template('current_affairs.html', news=news_data)
 
+# --- ERROR HANDLERS ---
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Pass through HTTP errors
+    if hasattr(e, 'code') and e.code < 500:
+        return jsonify(error=str(e)), e.code
+    
+    # Custom 500 error page with diagnostics
+    diag = app.config.get('FIREBASE_DIAGNOSTIC', {})
+    trace = "No traceback available"
+    import traceback
+    trace = traceback.format_exc()
+    
+    error_html = f"""
+    <html>
+        <body style="font-family: sans-serif; padding: 2rem; background: #0f172a; color: #f1f5f9;">
+            <h1 style="color: #ef4444;">Application Error (500)</h1>
+            <p>Something went wrong on the server.</p>
+            <div style="background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155; margin-bottom: 1rem;">
+                <h3>Error Details:</h3>
+                <pre style="white-space: pre-wrap; color: #fca5a5;">{str(e)}</pre>
+            </div>
+            <div style="background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">
+                <h3>Diagnostic Info:</h3>
+                <pre>{json.dumps(diag, indent=2)}</pre>
+            </div>
+            <div style="background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155; margin-top:1rem;">
+                <h3>Traceback:</h3>
+                <pre style="font-size: 0.8rem; color: #94a3b8;">{trace}</pre>
+            </div>
+        </body>
+    </html>
+    """
+    return error_html, 500
+
 # This is the entry point for Vercel
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
