@@ -76,6 +76,7 @@ def bulk_upload():
                 bill_data['status'] = bill_data.get('status', 'Introduced').strip()
 
                 print(f"  🔄 Processing Bill ID: {bill_no} - {bill_data['title'][:30]}...")
+                pdf_filename = f"{bill_no}.pdf"
                 pdf_path = os.path.join(dataset_path, pdf_filename)
                 
                 if os.path.exists(pdf_path):
