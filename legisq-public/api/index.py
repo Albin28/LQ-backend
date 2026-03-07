@@ -193,9 +193,9 @@ def mps_dashboard():
     docs = mps_ref.stream()
     mps_list = [serialize_generic_doc(doc) for doc in docs]
     
-    sessions = sorted(list(set(mp.get('session', 'N/A') for mp in mps_list)))
-    houses = sorted(list(set(mp.get('house', 'N/A') for mp in mps_list)))
-    states = sorted(list(set(mp.get('state', 'N/A') for mp in mps_list)))
+    sessions = sorted(list(set(str(mp.get('session', 'N/A')) for mp in mps_list)))
+    houses = sorted(list(set(str(mp.get('house', 'N/A')) for mp in mps_list)))
+    states = sorted(list(set(str(mp.get('state', 'N/A')) for mp in mps_list)))
         
     return render_template('mps.html', mps=mps_list, sessions=sessions, houses=houses, states=states)
 
