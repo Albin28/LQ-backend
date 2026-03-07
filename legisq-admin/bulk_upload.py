@@ -76,18 +76,16 @@ def bulk_upload():
                 bill_data['status'] = bill_data.get('status', 'Introduced').strip()
 
                 print(f"  🔄 Processing Bill ID: {bill_no} - {bill_data['title'][:30]}...")
+                # Local PDF Linking (No Cloud Storage)
                 pdf_filename = f"{bill_no}.pdf"
                 pdf_path = os.path.join(dataset_path, pdf_filename)
                 
                 if os.path.exists(pdf_path):
-                    print(f"  ⬆️ Uploading PDF for bill {bill_no} to Cloud...")
-                    blob_path = f"bills/{bill_no}/{int(time.time())}_{pdf_filename}"
-                    blob = bucket.blob(blob_path)
-                    blob.upload_from_filename(pdf_path, content_type='application/pdf')
-                    blob.make_public()
-                    bill_data['pdf_url'] = blob.public_url
-                    print(f"  🔗 Linked to Cloud URL: {blob.public_url}")
+                    # Link to the local static path (works if folder is pushed to Vercel/GitHub)
+                    bill_data['pdf_url'] = f"/static/dataset/{pdf_filename}"
+                    print(f"  📎 Linked to local file: {bill_data['pdf_url']}")
                 else:
+                    print(f"  ⚠️ Warning: PDF not found at {pdf_path}")
                     # Keep existing URL if it exists in DB, otherwise None
                     doc = db.collection('bills').document(bill_no).get()
                     if doc.exists:

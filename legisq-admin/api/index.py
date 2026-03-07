@@ -70,14 +70,28 @@ def require_admin(f):
     return decorated_function
 
 def upload_pdf_to_storage(pdf_file, doc_id):
-    if not bucket or not pdf_file or not pdf_file.filename:
+    if not pdf_file or not pdf_file.filename:
         return None
+    
     safe_name = secure_filename(pdf_file.filename)
-    filename = f"bills/{doc_id}/{int(time.time())}_{safe_name}"
-    blob = bucket.blob(filename)
-    blob.upload_from_file(pdf_file, content_type='application/pdf')
-    blob.make_public()
-    return blob.public_url
+    
+    # If bucket exists, use it
+    if bucket:
+        try:
+            filename = f"bills/{doc_id}/{int(time.time())}_{safe_name}"
+            blob = bucket.blob(filename)
+            blob.upload_from_file(pdf_file, content_type='application/pdf')
+            blob.make_public()
+            return blob.public_url
+        except Exception as e:
+            print(f"⚠️ Cloud upload failed, falling back to local: {e}")
+
+    # Local Fallback (Ideal for local admin usage)
+    local_dir = os.path.join(app.static_folder, 'dataset')
+    os.makedirs(local_dir, exist_ok=True)
+    local_path = os.path.join(local_dir, safe_name)
+    pdf_file.save(local_path)
+    return f"/static/dataset/{safe_name}"
 
 def serialize_bill_doc(doc):
     data = doc.to_dict() or {}
