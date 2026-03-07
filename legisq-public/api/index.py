@@ -174,9 +174,15 @@ def home():
         """
         return error_html, 500
     
-    bills_ref = db.collection('bills').order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50)
-    docs = bills_ref.stream()
+    # Try sorted query first
+    docs = db.collection('bills').order_by('date_introduced', direction=firestore.Query.DESCENDING).limit(50).stream()
     bills_list = [serialize_bill_doc(doc) for doc in docs]
+    
+    # Fallback to unsorted query if 0 results (likely missing date_introduced fields)
+    if not bills_list:
+        docs = db.collection('bills').limit(50).stream()
+        bills_list = [serialize_bill_doc(doc) for doc in docs]
+        
     return render_template('index.html', bills=bills_list)
 
 @app.route('/mps')

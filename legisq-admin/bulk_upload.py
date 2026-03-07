@@ -47,14 +47,35 @@ def bulk_upload():
             df_bills = pd.read_excel(bills_file).astype(str)
             df_bills = df_bills.where(pd.notnull(df_bills), None)
             
+            # Make column names case-insensitive for easier mapping
+            df_bills.columns = [c.lower().strip() for c in df_bills.columns]
+            print(f"  📂 Found columns: {list(df_bills.columns)}")
+
             for index, row in df_bills.iterrows():
-                bill_no = str(row.get('bill_no'))
-                if not bill_no or bill_no == 'None': continue
+                # Try common names for the ID column
+                bill_no = None
+                for col in ['bill_no', 'bill no', 'id', 'billid']:
+                    if col in row:
+                        val = str(row[col]).strip()
+                        if val and val != 'None' and val != 'nan':
+                            bill_no = val
+                            break
+                
+                if not bill_no:
+                    print(f"  ⚠️ Skipping row {index}: No bill_no or id column found.")
+                    continue
 
                 bill_data = row.to_dict()
                 
-                # Check for matching PDF and Upload to Cloud
-                pdf_filename = f"{bill_no}.pdf"
+                # Ensure date_introduced exists for Firestore ordering
+                if 'date_introduced' not in bill_data or str(bill_data['date_introduced']) in ['None', 'nan', '']:
+                    bill_data['date_introduced'] = firestore.SERVER_TIMESTAMP
+                
+                # Basic cleanup
+                bill_data['title'] = bill_data.get('title', bill_data.get('bill_title', 'Unknown Title')).strip()
+                bill_data['status'] = bill_data.get('status', 'Introduced').strip()
+
+                print(f"  🔄 Processing Bill ID: {bill_no} - {bill_data['title'][:30]}...")
                 pdf_path = os.path.join(dataset_path, pdf_filename)
                 
                 if os.path.exists(pdf_path):
