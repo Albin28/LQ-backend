@@ -211,13 +211,27 @@ def reset_database_api():
             for doc in docs:
                 doc.reference.delete()
         
-        # 2. Clear Storage (bills/ folder)
+        # 2. Clear Storage (Optional - only if bucket exists)
         if bucket:
-            blobs = bucket.list_blobs(prefix='bills/')
-            for blob in blobs:
-                blob.delete()
+            try:
+                blobs = bucket.list_blobs(prefix='bills/')
+                for blob in blobs:
+                    blob.delete()
+            except Exception as se:
+                print(f"⚠️ Could not clear Cloud Storage: {se}")
+
+        # 3. Clear Local Dataset
+        local_dir = os.path.join(app.static_folder, 'dataset')
+        if os.path.exists(local_dir):
+            try:
+                import shutil
+                shutil.rmtree(local_dir)
+                os.makedirs(local_dir) # Recreate empty
+                print("✅ Local dataset cleared")
+            except Exception as le:
+                print(f"⚠️ Could not clear local dataset: {le}")
         
-        return jsonify({"success": True, "message": "Database and Storage cleared successfully"}), 200
+        return jsonify({"success": True, "message": "Database and Local Files cleared successfully"}), 200
     except Exception as e:
         print(f"❌ Error resetting database: {e}")
         return jsonify({"error": str(e)}), 500
