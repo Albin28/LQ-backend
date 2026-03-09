@@ -52,6 +52,17 @@
                     <div class="form-group" id="pdfPreviewGroup">
                         <span class="form-label">Current PDF:</span>
                         <a id="currentPdfLink" href="#" target="_blank" class="nav-link-inline">View Attached File</a>
+                        <button type="button" id="removePdfBtn" onclick="removePdf()" class="btn-remove-pdf">✕ Remove
+                            PDF</button>
+                    </div>
+                    <div class="form-group hidden" id="noPdfGroup">
+                        <span class="no-pdf-notice">⚠️ No PDF attached — save to confirm removal.</span>
+                    </div>
+                    <input type="hidden" id="removePdfFlag" name="remove_pdf" value="0">
+                    <div class="form-group">
+                        <label for="billPdf">Replace PDF <small class="pdf-upload-hint">(PDF or DOCX only, max 10 MB —
+                                leave blank to keep existing)</small></label>
+                        <input type="file" id="billPdf" name="pdf" class="form-control-file" accept=".pdf,.docx">
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save Bill</button>
@@ -199,6 +210,41 @@
         background: rgba(198, 40, 40, 0.1) !important;
         color: #ef5350 !important;
         border: 1px solid rgba(198, 40, 40, 0.2) !important;
+    }
+
+    .btn-remove-pdf {
+        margin-left: 0.75rem;
+        background: rgba(198, 40, 40, 0.12);
+        color: #ef5350;
+        border: 1px solid rgba(198, 40, 40, 0.25);
+        border-radius: 6px;
+        padding: 0.2rem 0.6rem;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+
+    .no-pdf-notice {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .form-control-file {
+        width: 100%;
+        padding: 0.8rem;
+        background-color: rgba(0, 0, 0, 0.1);
+        border: 1px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+
+    .pdf-upload-hint {
+        font-weight: 400;
+        opacity: 0.7;
+    }
+
+    .hidden {
+        display: none !important;
     }
 
     .empty-table-cell {
@@ -398,8 +444,18 @@
         document.getElementById('billForm').reset();
         document.getElementById('billFormTitle').innerText = 'Edit Existing Bill';
         document.getElementById('billId').value = '';
-        document.getElementById('pdfPreviewGroup').style.display = 'none';
-        document.getElementById('billFormContainer').style.display = 'none';
+        document.getElementById('pdfPreviewGroup').classList.add('hidden');
+        document.getElementById('noPdfGroup').classList.add('hidden');
+        document.getElementById('removePdfFlag').value = '0';
+        document.getElementById('billFormContainer').classList.add('hidden');
+    }
+
+    function removePdf() {
+        document.getElementById('pdfPreviewGroup').classList.add('hidden');
+        document.getElementById('noPdfGroup').classList.remove('hidden');
+        document.getElementById('removePdfFlag').value = '1';
+        // Also clear the file input in case a new file was selected
+        document.getElementById('billPdf').value = '';
     }
 
     async function handleBillSubmit(event) {
@@ -407,16 +463,31 @@
         const form = event.target;
         const billId = form.querySelector('#billId').value;
         const url = billId ? `/api/bills/${billId}` : '/api/bills';
-        // For file uploads, we must use PUT for updates, not a generic POST
         const method = billId ? 'PUT' : 'POST';
 
+        // --- Client-side file validation ---
+        const fileInput = document.getElementById('billPdf');
+        const file = fileInput.files[0];
+        if (file) {
+            const allowed = ['.pdf', '.docx'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!allowed.includes(ext)) {
+                alert('❌ Invalid file type. Only PDF and DOCX files are allowed.');
+                return;
+            }
+            const maxBytes = 10 * 1024 * 1024; // 10 MB
+            if (file.size > maxBytes) {
+                alert(`❌ File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 10 MB.`);
+                return;
+            }
+        }
+
         const formData = new FormData(form);
-        // No longer converting to JSON, sending FormData directly
 
         try {
             const response = await fetch(url, {
                 method: method,
-                body: formData // Send FormData directly
+                body: formData
             });
 
             if (!response.ok) {
@@ -424,14 +495,12 @@
                 throw new Error(error.error || 'Failed to save bill');
             }
 
-            const savedBill = await response.json();
-
-            if (billId) { // Update existing row
+            if (billId) { // Update existing row instantly using form values
                 const row = document.querySelector(`tr[data-id="${billId}"]`);
-                row.cells[0].innerText = savedBill.title;
-                row.cells[1].innerHTML = `<span class="badge">${savedBill.status}</span>`;
-                // Since we only edit, we expect billId to always exist
-                console.warn('Bill updated but no ID found in form - this should not happen in edit-only mode.');
+                if (row) {
+                    row.cells[0].innerText = formData.get('title');
+                    row.cells[1].innerHTML = `<span class="badge">${formData.get('status')}</span>`;
+                }
             }
 
             resetBillForm();
@@ -451,7 +520,7 @@
             const bill = await response.json();
             document.getElementById('billFormTitle').innerText = 'Edit Bill: ' + bill.title;
             document.getElementById('billId').value = bill.id;
-            document.getElementById('billFormContainer').style.display = 'block';
+            document.getElementById('billFormContainer').classList.remove('hidden');
             document.getElementById('billTitle').value = bill.title;
             document.getElementById('billStatus').value = bill.status;
             document.getElementById('billSummary').value = bill.summary || '';
@@ -460,16 +529,9 @@
                 const previewGroup = document.getElementById('pdfPreviewGroup');
                 const link = document.getElementById('currentPdfLink');
                 link.href = bill.pdf_url;
-                previewGroup.style.display = 'block';
-                // If the URL doesn't look like a Firebase Storage URL, populate manual field
-                if (!bill.pdf_url.includes('firebasestorage.googleapis.com')) {
-                    document.getElementById('manualPdfUrl').value = bill.pdf_url;
-                } else {
-                    document.getElementById('manualPdfUrl').value = '';
-                }
+                previewGroup.classList.remove('hidden');
             } else {
-                document.getElementById('pdfPreviewGroup').style.display = 'none';
-                document.getElementById('manualPdfUrl').value = '';
+                document.getElementById('pdfPreviewGroup').classList.add('hidden');
             }
 
             window.scrollTo(0, 0); // Scroll to top to see the form

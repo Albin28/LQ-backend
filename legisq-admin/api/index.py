@@ -85,12 +85,27 @@ def require_admin(f):
         return f(*args, **kwargs)
     return decorated_function
 
+ALLOWED_EXTENSIONS = {'.pdf', '.docx'}
+MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
+
 def upload_pdf_to_storage(pdf_file, doc_id):
     if not pdf_file or not pdf_file.filename:
         return None
-    
+
     safe_name = secure_filename(pdf_file.filename)
-    
+    ext = os.path.splitext(safe_name)[1].lower()
+
+    # Server-side type validation
+    if ext not in ALLOWED_EXTENSIONS:
+        raise ValueError(f"Invalid file type '{ext}'. Only PDF and DOCX are allowed.")
+
+    # Server-side size validation (read into memory to check)
+    pdf_file.seek(0, 2)          # Seek to end
+    file_size = pdf_file.tell()  # Get position = size in bytes
+    pdf_file.seek(0)             # Rewind
+    if file_size > MAX_FILE_BYTES:
+        raise ValueError(f"File too large ({file_size / 1024 / 1024:.1f} MB). Maximum is 10 MB.")
+
     # If bucket exists, use it
     if bucket:
         try:
@@ -184,9 +199,20 @@ def manage_bill(bill_id):
     if request.method == 'PUT':
         data = request.form
         update_data = {"title": data.get('title'), "status": data.get('status'), "summary": data.get('summary')}
-        pdf_file = request.files.get('pdf')
-        if pdf_file:
-            update_data['pdf_url'] = upload_pdf_to_storage(pdf_file, bill_id)
+
+        # Handle explicit PDF removal
+        if data.get('remove_pdf') == '1':
+            update_data['pdf_url'] = None
+            print(f"🗑️ PDF removed for bill {bill_id}")
+        else:
+            # Handle new PDF upload
+            pdf_file = request.files.get('pdf')
+            if pdf_file and pdf_file.filename:
+                try:
+                    update_data['pdf_url'] = upload_pdf_to_storage(pdf_file, bill_id)
+                except ValueError as ve:
+                    return jsonify({"error": str(ve)}), 400
+
         doc_ref.update(update_data)
         return jsonify({"success": True})
     if request.method == 'DELETE':

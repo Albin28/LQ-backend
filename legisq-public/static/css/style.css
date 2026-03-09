@@ -239,6 +239,17 @@ a {
     opacity: 0.5;
 }
 
+.btn-download--none {
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius-pill);
+    background: rgba(0, 0, 0, 0.05);
+    color: #94a3b8;
+    font-weight: 500;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    cursor: default;
+}
+
 /* --- Glass Panels & Cards --- */
 .glass-panel {
     background: var(--glass-surface);
