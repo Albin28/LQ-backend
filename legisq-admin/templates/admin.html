@@ -666,18 +666,25 @@
 
             if (mpId) { // Update row
                 const row = document.querySelector(`#mpsTableBody tr[data-id="${mpId}"]`);
-                row.cells[0].innerText = savedMp.name;
-                row.cells[1].innerText = savedMp.state;
-                row.cells[2].innerHTML = `<span class="badge">${savedMp.house}</span>`;
+                if (row) {
+                    row.cells[0].innerText = data.name;
+                    row.cells[1].innerText = data.state;
+                    row.cells[2].innerHTML = `<span class="badge">${data.house}</span>`;
+                }
             } else { // Add new row
+                const res = await response.json();
+                // If there was an "empty table" message, remove it
+                const emptyCell = document.querySelector('#mpsTableBody .empty-table-cell');
+                if (emptyCell) emptyCell.parentElement.remove();
+
                 const newRow = `
-                <tr data-id="${savedMp.id}">
-                    <td>${savedMp.name}</td>
-                    <td>${savedMp.state}</td>
-                    <td><span class="badge">${savedMp.house}</span></td>
+                <tr data-id="${res.id}">
+                    <td>${data.name}</td>
+                    <td>${data.state}</td>
+                    <td><span class="badge">${data.house}</span></td>
                     <td class="action-buttons">
-                        <button class="btn-icon" onclick="editMp('${savedMp.id}')">✏️</button>
-                        <button class="btn-icon" onclick="deleteMp('${savedMp.id}')">🗑️</button>
+                        <button class="btn-icon" onclick="editMp('${res.id}')">✏️</button>
+                        <button class="btn-icon" onclick="deleteMp('${res.id}')">🗑️</button>
                     </td>
                 </tr>`;
                 document.getElementById('mpsTableBody').insertAdjacentHTML('afterbegin', newRow);
