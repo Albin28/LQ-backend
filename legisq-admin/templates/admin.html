@@ -27,10 +27,16 @@
     <div id="billsTab" class="tab-content active">
         <div class="admin-grid">
             <!-- Edit Bill Form (Hidden by default) -->
-            <div id="billFormContainer" class="glass-panel admin-form-panel">
+            <div id="billFormContainer" class="glass-panel admin-form-panel hidden">
                 <h3 id="billFormTitle">Edit Existing Bill</h3>
                 <form id="billForm" class="admin-form">
                     <input type="hidden" id="billId" name="id">
+                    <div class="form-group" id="billIdCustomGroup">
+                        <label for="billIdCustom">Bill Number / ID <small class="pdf-upload-hint">(matches Excel
+                                'bill_no' or 'id')</small></label>
+                        <input type="text" id="billIdCustom" name="custom_id" class="form-control"
+                            placeholder="e.g. B101 (optional)">
+                    </div>
                     <div class="form-group">
                         <label for="billTitle">Title</label>
                         <input type="text" id="billTitle" name="title" class="form-control" required>
@@ -49,9 +55,9 @@
                         <label for="billSummary">Summary</label>
                         <textarea id="billSummary" name="summary" class="form-control" rows="4"></textarea>
                     </div>
-                    <div class="form-group" id="pdfPreviewGroup">
-                        <span class="form-label">Current PDF:</span>
-                        <a id="currentPdfLink" href="#" target="_blank" class="nav-link-inline">View Attached File</a>
+                    <div class="form-group hidden" id="pdfPreviewGroup">
+                        <span class="form-label">✅ Document Attached:</span>
+                        <a id="currentPdfLink" href="#" target="_blank" class="nav-link-inline">View File</a>
                         <button type="button" id="removePdfBtn" onclick="removePdf()" class="btn-remove-pdf">✕ Remove
                             PDF</button>
                     </div>
@@ -72,7 +78,10 @@
             </div>
             <!-- Bills List -->
             <div class="glass-panel admin-list-panel">
-                <h3>Existing Bills</h3>
+                <div class="header-with-action">
+                    <h3>Existing Bills</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="showAddBillForm()">➕ Add New Bill</button>
+                </div>
                 <div class="table-container">
                     <table class="admin-table">
                         <thead>
@@ -112,7 +121,7 @@
     <div id="mpsTab" class="tab-content">
         <div class="admin-grid">
             <!-- Add/Edit MP Form -->
-            <div id="mpFormContainer" class="glass-panel admin-form-panel">
+            <div id="mpFormContainer" class="glass-panel admin-form-panel hidden">
                 <h3 id="mpFormTitle">Edit Existing MP</h3>
                 <form id="mpForm" class="admin-form">
                     <input type="hidden" id="mpId" name="id">
@@ -167,7 +176,10 @@
             </div>
             <!-- MPs List -->
             <div class="glass-panel admin-list-panel">
-                <h3>Existing MPs</h3>
+                <div class="header-with-action">
+                    <h3>Existing MPs</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="showAddMpForm()">➕ Add New MP</button>
+                </div>
                 <div class="table-container">
                     <table class="admin-table">
                         <thead>
@@ -247,10 +259,28 @@
         display: none !important;
     }
 
+    .readonly-input {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
     .empty-table-cell {
         text-align: center;
         padding: 2rem;
         color: var(--text-secondary);
+    }
+
+    .header-with-action {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .btn-sm {
+        padding: 0.4rem 0.8rem !important;
+        font-size: 0.85rem !important;
     }
 
     .tabs {
@@ -291,7 +321,6 @@
     }
 
     #billFormContainer {
-        display: none;
         margin-bottom: 2rem;
     }
 
@@ -334,7 +363,6 @@
     }
 
     #pdfPreviewGroup {
-        display: none;
         background: rgba(13, 71, 161, 0.05);
         padding: 0.8rem;
         border-radius: var(--radius-sm);
@@ -419,7 +447,7 @@
     function openTab(evt, tabName) {
         const tabcontent = document.getElementsByClassName("tab-content");
         for (let i = 0; i < tabcontent.length; i++) {
-            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.add("hidden");
             tabcontent[i].classList.remove("active");
         }
         const tablinks = document.getElementsByClassName("tab-link");
@@ -428,7 +456,7 @@
         }
 
         const targetTab = document.getElementById(tabName);
-        targetTab.style.display = "block";
+        targetTab.classList.remove("hidden");
         targetTab.classList.add("active");
 
         if (evt && evt.currentTarget) {
@@ -444,6 +472,10 @@
         document.getElementById('billForm').reset();
         document.getElementById('billFormTitle').innerText = 'Edit Existing Bill';
         document.getElementById('billId').value = '';
+        const idCustom = document.getElementById('billIdCustom');
+        idCustom.value = '';
+        idCustom.removeAttribute('readonly');
+        idCustom.classList.remove('readonly-input');
         document.getElementById('pdfPreviewGroup').classList.add('hidden');
         document.getElementById('noPdfGroup').classList.add('hidden');
         document.getElementById('removePdfFlag').value = '0';
@@ -501,10 +533,27 @@
                     row.cells[0].innerText = formData.get('title');
                     row.cells[1].innerHTML = `<span class="badge">${formData.get('status')}</span>`;
                 }
+            } else {
+                // If there was an "empty table" message, remove it
+                const emptyCell = document.querySelector('#billsTableBody .empty-table-cell');
+                if (emptyCell) emptyCell.parentElement.remove();
+
+                // Add new row at top
+                const res = await response.json();
+                const newRow = `
+                <tr data-id="${res.id || ''}">
+                    <td>${formData.get('title')}</td>
+                    <td><span class="badge">${formData.get('status')}</span></td>
+                    <td class="action-buttons">
+                        <button class="btn-icon" onclick="editBill('${res.id || ''}')">✏️</button>
+                        <button class="btn-icon" onclick="deleteBill('${res.id || ''}')">🗑️</button>
+                    </td>
+                </tr>`;
+                document.getElementById('billsTableBody').insertAdjacentHTML('afterbegin', newRow);
             }
 
             resetBillForm();
-            alert('Bill saved successfully!');
+            alert(billId ? 'Bill updated successfully!' : 'New Bill added successfully!');
 
         } catch (error) {
             console.error('Submit Error:', error);
@@ -520,6 +569,12 @@
             const bill = await response.json();
             document.getElementById('billFormTitle').innerText = 'Edit Bill: ' + bill.title;
             document.getElementById('billId').value = bill.id;
+
+            const idCustom = document.getElementById('billIdCustom');
+            idCustom.value = bill.id;
+            idCustom.setAttribute('readonly', 'true');
+            idCustom.classList.add('readonly-input');
+
             document.getElementById('billFormContainer').classList.remove('hidden');
             document.getElementById('billTitle').value = bill.title;
             document.getElementById('billStatus').value = bill.status;
@@ -558,12 +613,30 @@
 
     document.getElementById('billForm').addEventListener('submit', handleBillSubmit);
 
+    function showAddBillForm() {
+        resetBillForm();
+        document.getElementById('billFormTitle').innerText = 'Add New Bill';
+        const idCustom = document.getElementById('billIdCustom');
+        idCustom.removeAttribute('readonly');
+        idCustom.classList.remove('readonly-input');
+        document.getElementById('billFormContainer').classList.remove('hidden');
+        window.scrollTo(0, 0);
+    }
+
+    function showAddMpForm() {
+        resetMpForm();
+        document.getElementById('mpFormTitle').innerText = 'Add New MP';
+        document.getElementById('mpFormContainer').classList.remove('hidden');
+        window.scrollTo(0, 0);
+    }
+
     // --- MP Management ---
     function resetMpForm() {
         document.getElementById('mpForm').reset();
         document.getElementById('mpFormTitle').innerText = 'Edit Existing MP';
         document.getElementById('mpId').value = '';
         document.getElementById('mpSession').value = '';
+        document.getElementById('mpFormContainer').classList.add('hidden');
         toggleConstituency();
     }
 
@@ -637,6 +710,7 @@
             document.getElementById('mpSession').value = mp.session || '';
 
             toggleConstituency();
+            document.getElementById('mpFormContainer').classList.remove('hidden');
             openTab(null, 'mpsTab'); // Switch to the MP tab
             window.scrollTo(0, 0); // Scroll to top
 
@@ -719,10 +793,10 @@
         const group = document.getElementById('constituencyGroup');
         const consSelect = document.getElementById('mpConstituency');
         if (house === 'Rajya Sabha') {
-            group.style.display = 'none';
+            group.classList.add('hidden');
             consSelect.removeAttribute('required');
         } else {
-            group.style.display = 'block';
+            group.classList.remove('hidden');
             consSelect.setAttribute('required', 'required');
             updateConstituencies();
         }

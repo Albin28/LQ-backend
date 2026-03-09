@@ -124,15 +124,22 @@ def upload_pdf_to_storage(pdf_file, doc_id):
     pdf_file.save(local_path)
     return f"/static/dataset/{safe_name}"
 
-def serialize_bill_doc(doc):
-    data = doc.to_dict() or {}
+def serialize_doc(doc):
+    if not doc.exists:
+        return None
+    data = doc.to_dict()
     data['id'] = doc.id
+    # Handle Firestore timestamps
+    for key, value in data.items():
+        if hasattr(value, 'isoformat'): # Handles datetime and DatetimeWithNanoseconds
+            data[key] = value.isoformat()
     return data
 
+def serialize_bill_doc(doc):
+    return serialize_doc(doc)
+
 def serialize_generic_doc(doc):
-    data = doc.to_dict() or {}
-    data['id'] = doc.id
-    return data
+    return serialize_doc(doc)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -158,7 +165,8 @@ def logout():
 @app.route('/')
 @require_admin
 def admin_dashboard():
-    bills = [serialize_bill_doc(doc) for doc in db.collection('bills').stream()]
+    # Order by date_introduced descending so newest bills appear at the top
+    bills = [serialize_bill_doc(doc) for doc in db.collection('bills').order_by('date_introduced', direction=firestore.Query.DESCENDING).stream()]
     mps = [serialize_generic_doc(doc) for doc in db.collection('mps').stream()]
     return render_template('admin.html', bills=bills, mps=mps)
 
@@ -176,19 +184,32 @@ def current_affairs():
 @require_admin
 def add_bill():
     data = request.form
-    doc_ref = db.collection('bills').document()
-    pdf_file = request.files.get('pdf')
-    pdf_url = upload_pdf_to_storage(pdf_file, doc_ref.id)
     
-    bill_data = {
-        "title": data.get('title'),
-        "status": data.get('status'),
-        "summary": data.get('summary', ''),
-        "date_introduced": firestore.SERVER_TIMESTAMP,
-        "pdf_url": pdf_url
-    }
-    doc_ref.set(bill_data)
-    return jsonify({"success": True}), 201
+    # Use custom_id if provided (manual ID entry), otherwise generate one
+    custom_id = data.get('custom_id')
+    if custom_id and custom_id.strip():
+        doc_ref = db.collection('bills').document(custom_id.strip())
+    else:
+        doc_ref = db.collection('bills').document()
+    
+    try:
+        pdf_file = request.files.get('pdf')
+        pdf_url = upload_pdf_to_storage(pdf_file, doc_ref.id)
+        
+        bill_data = {
+            "title": data.get('title'),
+            "status": data.get('status'),
+            "summary": data.get('summary', ''),
+            "date_introduced": firestore.SERVER_TIMESTAMP,
+            "pdf_url": pdf_url
+        }
+        doc_ref.set(bill_data)
+        return jsonify({"success": True, "id": doc_ref.id}), 201
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        print(f"❌ Error adding bill: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/bills/<bill_id>', methods=['GET', 'PUT', 'DELETE'])
 @require_admin
@@ -224,9 +245,8 @@ def manage_bill(bill_id):
 def add_mp():
     data = request.json
     doc_ref = db.collection('mps').document()
-    data['id'] = doc_ref.id
     doc_ref.set(data)
-    return jsonify(data), 201
+    return jsonify({"success": True, "id": doc_ref.id}), 201
 
 @app.route('/api/mps/<mp_id>', methods=['GET', 'PUT', 'DELETE'])
 @require_admin
