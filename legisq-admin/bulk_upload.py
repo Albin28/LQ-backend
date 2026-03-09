@@ -37,20 +37,38 @@ def bulk_upload():
         return
 
     dataset_path = get_absolute_path("static/dataset")
-    bills_file = os.path.join(dataset_path, "bills.xlsx")
-    mps_file = os.path.join(dataset_path, "mps.xlsx")
+    
+    # Try multiple common filenames
+    bills_candidates = ["bills.xlsx", "bills_metadata.xlsx", "Bills.xlsx"]
+    mps_candidates = ["mps.xlsx", "mps_metadata.xlsx", "MPs.xlsx"]
+    
+    bills_file = None
+    for c in bills_candidates:
+        p = os.path.join(dataset_path, c)
+        if os.path.exists(p):
+            bills_file = p
+            break
+            
+    mps_file = None
+    for c in mps_candidates:
+        p = os.path.join(dataset_path, c)
+        if os.path.exists(p):
+            mps_file = p
+            break
 
     # --- PROCESS BILLS ---
     print("\n--- Processing Bills ---")
-    if os.path.exists(bills_file):
+    if bills_file:
         try:
+            print(f"  📖 Reading: {os.path.basename(bills_file)}...")
             df_bills = pd.read_excel(bills_file).astype(str)
             df_bills = df_bills.where(pd.notnull(df_bills), None)
             
             # Make column names case-insensitive for easier mapping
             df_bills.columns = [c.lower().strip() for c in df_bills.columns]
-            print(f"  📂 Found columns: {list(df_bills.columns)}")
+            # print(f"  📂 Found columns: {list(df_bills.columns)}")
 
+            count = 0
             for index, row in df_bills.iterrows():
                 # Try common names for the ID column
                 bill_no = None
@@ -62,6 +80,9 @@ def bulk_upload():
                             break
                 
                 if not bill_no:
+                    # Skip rows that are truly empty
+                    if not any(str(v).strip() for v in row.values if v is not None):
+                        continue
                     print(f"  ⚠️ Skipping row {index}: No bill_no or id column found.")
                     continue
 
@@ -75,17 +96,13 @@ def bulk_upload():
                 bill_data['title'] = bill_data.get('title', bill_data.get('bill_title', 'Unknown Title')).strip()
                 bill_data['status'] = bill_data.get('status', 'Introduced').strip()
 
-                print(f"  🔄 Processing Bill ID: {bill_no} - {bill_data['title'][:30]}...")
-                # Local PDF Linking (No Cloud Storage)
+                # Local PDF Linking
                 pdf_filename = f"{bill_no}.pdf"
                 pdf_path = os.path.join(dataset_path, pdf_filename)
                 
                 if os.path.exists(pdf_path):
-                    # Link to the local static path (works if folder is pushed to Vercel/GitHub)
                     bill_data['pdf_url'] = f"/static/dataset/{pdf_filename}"
-                    print(f"  📎 Linked to local file: {bill_data['pdf_url']}")
                 else:
-                    print(f"  ⚠️ Warning: PDF not found at {pdf_path}")
                     # Keep existing URL if it exists in DB, otherwise None
                     doc = db.collection('bills').document(bill_no).get()
                     if doc.exists:
@@ -94,25 +111,46 @@ def bulk_upload():
 
                 db.collection('bills').document(bill_no).set(bill_data, merge=True)
                 print(f"  ✅ Processed: {bill_data.get('title')} (ID: {bill_no})")
+                count += 1
+            print(f"  🎉 Finished processing {count} bills.")
         except Exception as e:
             print(f"❌ Error processing bills: {e}")
+    else:
+        print(f"  ⚠️ Warning: No bills Excel file found in {dataset_path}")
+        print(f"     (Looked for: {', '.join(bills_candidates)})")
 
     # --- PROCESS MPs ---
     print("\n--- Processing MPs ---")
-    if os.path.exists(mps_file):
+    if mps_file:
         try:
+            print(f"  📖 Reading: {os.path.basename(mps_file)}...")
             df_mps = pd.read_excel(mps_file).astype(str)
+            count = 0
             for index, row in df_mps.iterrows():
-                mp_id = str(row.get('mp_id'))
-                if not mp_id or mp_id == 'None': continue
+                # Try common names for MP ID
+                mp_id = None
+                for col in ['mp_id', 'id', 'mp id']:
+                    if col in row:
+                        val = str(row[col]).strip()
+                        if val and val != 'None' and val != 'nan':
+                            mp_id = val
+                            break
+                
+                if not mp_id: continue
+                
                 mp_data = row.to_dict()
                 for field in ['attendance_pct', 'questions', 'debates']:
                     try: mp_data[field] = float(mp_data[field])
                     except: mp_data[field] = 0
                 db.collection('mps').document(mp_id).set(mp_data, merge=True)
                 print(f"  ✅ Processed MP: {mp_data.get('name')} (ID: {mp_id})")
+                count += 1
+            print(f"  🎉 Finished processing {count} MPs.")
         except Exception as e:
             print(f"❌ Error processing MPs: {e}")
+    else:
+        print(f"  ⚠️ Warning: No MPs Excel file found in {dataset_path}")
+        print(f"     (Looked for: {', '.join(mps_candidates)})")
 
     print("\n--- Bulk Upload Finished ---")
 
