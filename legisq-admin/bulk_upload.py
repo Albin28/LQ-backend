@@ -68,33 +68,40 @@ def bulk_upload():
             df_bills.columns = [c.lower().strip() for c in df_bills.columns]
             # print(f"  📂 Found columns: {list(df_bills.columns)}")
 
+            def clean_val(v):
+                if v is None: return None
+                s = str(v).strip()
+                if s.lower() in ['nan', 'none', '']: return None
+                return s
+
             count = 0
             for index, row in df_bills.iterrows():
                 # Try common names for the ID column
                 bill_no = None
                 for col in ['bill_no', 'bill no', 'id', 'billid']:
                     if col in row:
-                        val = str(row[col]).strip()
-                        if val and val != 'None' and val != 'nan':
+                        val = clean_val(row[col])
+                        if val:
                             bill_no = val
                             break
                 
                 if not bill_no:
                     # Skip rows that are truly empty
-                    if not any(str(v).strip() for v in row.values if v is not None):
+                    if not any(clean_val(v) for v in row.values):
                         continue
                     print(f"  ⚠️ Skipping row {index}: No bill_no or id column found.")
                     continue
 
-                bill_data = row.to_dict()
+                # UNIVERSAL CLEAN: Trim and remove 'nan'/'none'
+                bill_data = {k: clean_val(v) for k, v in row.to_dict().items()}
                 
                 # Ensure date_introduced exists for Firestore ordering
-                if 'date_introduced' not in bill_data or str(bill_data['date_introduced']) in ['None', 'nan', '']:
+                if not bill_data.get('date_introduced'):
                     bill_data['date_introduced'] = firestore.SERVER_TIMESTAMP
                 
-                # Basic cleanup
-                bill_data['title'] = bill_data.get('title', bill_data.get('bill_title', 'Unknown Title')).strip()
-                bill_data['status'] = bill_data.get('status', 'Introduced').strip()
+                # Column mapping cleanup
+                bill_data['title'] = bill_data.get('title', bill_data.get('bill_title', 'Unknown Title'))
+                bill_data['status'] = bill_data.get('status', 'Introduced')
 
                 # Local PDF Linking
                 pdf_filename = f"{bill_no}.pdf"
@@ -131,14 +138,16 @@ def bulk_upload():
                 mp_id = None
                 for col in ['mp_id', 'id', 'mp id']:
                     if col in row:
-                        val = str(row[col]).strip()
-                        if val and val != 'None' and val != 'nan':
+                        val = clean_val(row[col])
+                        if val:
                             mp_id = val
                             break
                 
                 if not mp_id: continue
                 
-                mp_data = row.to_dict()
+                # UNIVERSAL CLEAN: Trim and remove 'nan'/'none'
+                mp_data = {k: clean_val(v) for k, v in row.to_dict().items()}
+                
                 for field in ['attendance_pct', 'questions', 'debates']:
                     try: mp_data[field] = float(mp_data[field])
                     except: mp_data[field] = 0

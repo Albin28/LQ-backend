@@ -444,6 +444,14 @@
 </style>
 
 <script>
+    // --- Utilities ---
+    function cleanVal(v) {
+        if (v === null || v === undefined) return '';
+        const s = v.toString().trim();
+        if (s.toLowerCase() === 'nan' || s.toLowerCase() === 'none') return '';
+        return s;
+    }
+
     function openTab(evt, tabName) {
         const tabcontent = document.getElementsByClassName("tab-content");
         for (let i = 0; i < tabcontent.length; i++) {
@@ -576,9 +584,9 @@
             idCustom.classList.add('readonly-input');
 
             document.getElementById('billFormContainer').classList.remove('hidden');
-            document.getElementById('billTitle').value = bill.title;
-            document.getElementById('billStatus').value = bill.status;
-            document.getElementById('billSummary').value = bill.summary || '';
+            document.getElementById('billTitle').value = cleanVal(bill.title);
+            document.getElementById('billStatus').value = cleanVal(bill.status) || 'Introduced';
+            document.getElementById('billSummary').value = cleanVal(bill.summary);
 
             if (bill.pdf_url) {
                 const previewGroup = document.getElementById('pdfPreviewGroup');
@@ -707,14 +715,14 @@
             const mp = await response.json();
             document.getElementById('mpFormTitle').innerText = 'Edit MP';
             document.getElementById('mpId').value = mp.id;
-            document.getElementById('mpName').value = mp.name;
-            document.getElementById('mpState').value = mp.state;
-            document.getElementById('mpConstituency').value = mp.constituency;
-            document.getElementById('mpHouse').value = mp.house;
-            document.getElementById('mpAttendance').value = mp.attendance_pct;
-            document.getElementById('mpQuestions').value = mp.questions;
-            document.getElementById('mpDebates').value = mp.debates;
-            document.getElementById('mpSession').value = mp.session || '';
+            document.getElementById('mpName').value = cleanVal(mp.name);
+            document.getElementById('mpState').value = cleanVal(mp.state);
+            document.getElementById('mpConstituency').value = cleanVal(mp.constituency);
+            document.getElementById('mpHouse').value = cleanVal(mp.house);
+            document.getElementById('mpAttendance').value = cleanVal(mp.attendance_pct);
+            document.getElementById('mpQuestions').value = cleanVal(mp.questions);
+            document.getElementById('mpDebates').value = cleanVal(mp.debates);
+            document.getElementById('mpSession').value = cleanVal(mp.session);
 
             toggleConstituency();
             document.getElementById('mpFormContainer').classList.remove('hidden');
