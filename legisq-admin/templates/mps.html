@@ -18,6 +18,8 @@
             placeholder="Search by name, state, or constituency...">
         <select id="houseFilter" class="filter-select" title="Filter by House">
             <option value="all">All Houses</option>
+            <option value="Lok Sabha">Lok Sabha</option>
+            <option value="Rajya Sabha">Rajya Sabha</option>
         </select>
         <select id="stateFilter" class="filter-select" title="Filter by State">
             <option value="all">All States</option>
@@ -155,7 +157,8 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const mpsData = {{ mps|tojson }};
+        const mpsData = {{ mps| tojson
+    }};
     const searchInput = document.getElementById('searchInput');
     const houseFilter = document.getElementById('houseFilter');
     const stateFilter = document.getElementById('stateFilter');
@@ -163,8 +166,6 @@
     const allMpCards = Array.from(mpsList.querySelectorAll('.mp-card'));
 
     // --- Populate Filters ---
-    const houses = [...new Set(mpsData.map(m => m.house).filter(Boolean))];
-    houses.forEach(h => houseFilter.add(new Option(h, h)));
 
     const states = [...new Set(mpsData.map(m => m.state).filter(Boolean))];
     states.sort().forEach(s => stateFilter.add(new Option(s, s)));
@@ -251,4 +252,3 @@
 });
 </script>
 {% endblock %}
-

@@ -16,10 +16,6 @@
     <!-- Filter & Search Controls -->
     <section class="controls-container">
         <input type="text" id="searchInput" class="search-input" placeholder="Search bills by title or keyword...">
-        <select id="categoryFilter" class="filter-select" title="Filter by Category">
-            <option value="all">All Categories</option>
-            <!-- Categories will be populated by JS if needed, or can be hardcoded -->
-        </select>
         <select id="statusFilter" class="filter-select" title="Filter by Status">
             <option value="all">All Statuses</option>
             <option value="Assented">Assented</option>
@@ -75,22 +71,13 @@
     document.addEventListener('DOMContentLoaded', function () {
         const billsData = JSON.parse('{{ bills|tojson|safe }}');
         const searchInput = document.getElementById('searchInput');
-        const categoryFilter = document.getElementById('categoryFilter');
         const statusFilter = document.getElementById('statusFilter');
         const billsList = document.getElementById('billsList');
         const allBillCards = Array.from(billsList.querySelectorAll('.bill-card'));
 
-        // --- Populate Filters ---
-        const categories = [...new Set(billsData.map(b => b.category).filter(Boolean))];
-        categories.forEach(cat => {
-            const option = new Option(cat, cat);
-            categoryFilter.add(option);
-        });
-
         // --- Filtering Logic ---
         function filterAndRender() {
             const searchTerm = searchInput.value.toLowerCase();
-            const category = categoryFilter.value;
             const status = statusFilter.value;
 
             allBillCards.forEach(card => {
@@ -99,10 +86,9 @@
                 const cardStatus = card.dataset.status;
 
                 const matchesSearch = title.includes(searchTerm);
-                const matchesCategory = (category === 'all' || cardCategory === category);
                 const matchesStatus = (status === 'all' || cardStatus === status);
 
-                if (matchesSearch && matchesCategory && matchesStatus) {
+                if (matchesSearch && matchesStatus) {
                     card.style.display = 'flex';
                 } else {
                     card.style.display = 'none';
@@ -161,7 +147,6 @@
 
         // --- Event Listeners ---
         searchInput.addEventListener('input', filterAndRender);
-        categoryFilter.addEventListener('change', filterAndRender);
         statusFilter.addEventListener('change', filterAndRender);
 
         // --- Initial Load ---
