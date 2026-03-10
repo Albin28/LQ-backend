@@ -157,98 +157,97 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const mpsData = {{ mps| tojson
-    }};
-    const searchInput = document.getElementById('searchInput');
-    const houseFilter = document.getElementById('houseFilter');
-    const stateFilter = document.getElementById('stateFilter');
-    const mpsList = document.getElementById('mpsList');
-    const allMpCards = Array.from(mpsList.querySelectorAll('.mp-card'));
+        const mpsData = JSON.parse('{{ mps|tojson|safe }}');
+        const searchInput = document.getElementById('searchInput');
+        const houseFilter = document.getElementById('houseFilter');
+        const stateFilter = document.getElementById('stateFilter');
+        const mpsList = document.getElementById('mpsList');
+        const allMpCards = Array.from(mpsList.querySelectorAll('.mp-card'));
 
-    // --- Populate Filters ---
+        // --- Populate Filters ---
 
-    const states = [...new Set(mpsData.map(m => m.state).filter(Boolean))];
-    states.sort().forEach(s => stateFilter.add(new Option(s, s)));
+        const states = [...new Set(mpsData.map(m => m.state).filter(Boolean))];
+        states.sort().forEach(s => stateFilter.add(new Option(s, s)));
 
-    // --- Filtering Logic ---
-    function filterAndRender() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const house = houseFilter.value;
-        const state = stateFilter.value;
+        // --- Filtering Logic ---
+        function filterAndRender() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const house = houseFilter.value;
+            const state = stateFilter.value;
 
-        allMpCards.forEach(card => {
-            const name = card.dataset.name.toLowerCase();
-            const cardState = card.dataset.state.toLowerCase();
-            const cardConstituency = card.dataset.constituency.toLowerCase();
-            const cardHouse = card.dataset.house;
+            allMpCards.forEach(card => {
+                const name = card.dataset.name.toLowerCase();
+                const cardState = card.dataset.state.toLowerCase();
+                const cardConstituency = card.dataset.constituency.toLowerCase();
+                const cardHouse = card.dataset.house;
 
-            const matchesSearch = name.includes(searchTerm) || cardState.includes(searchTerm) || cardConstituency.includes(searchTerm);
-            const matchesHouse = (house === 'all' || cardHouse === house);
-            const matchesState = (state === 'all' || card.dataset.state === state);
+                const matchesSearch = name.includes(searchTerm) || cardState.includes(searchTerm) || cardConstituency.includes(searchTerm);
+                const matchesHouse = (house === 'all' || cardHouse === house);
+                const matchesState = (state === 'all' || card.dataset.state === state);
 
-            if (matchesSearch && matchesHouse && matchesState) {
-                card.style.display = 'flex';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    }
+                if (matchesSearch && matchesHouse && matchesState) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
 
-    // --- Chart.js Integration ---
-    function setupChart() {
-        const ctx = document.getElementById('mpsChart').getContext('2d');
+        // --- Chart.js Integration ---
+        function setupChart() {
+            const ctx = document.getElementById('mpsChart').getContext('2d');
 
-        // Sort MPs by attendance and take top 10
-        const topMps = mpsData.sort((a, b) => b.attendance_pct - a.attendance_pct).slice(0, 10);
+            // Sort MPs by attendance and take top 10
+            const topMps = mpsData.sort((a, b) => b.attendance_pct - a.attendance_pct).slice(0, 10);
 
-        const labels = topMps.map(mp => mp.name);
-        const data = topMps.map(mp => mp.attendance_pct);
+            const labels = topMps.map(mp => mp.name);
+            const data = topMps.map(mp => mp.attendance_pct);
 
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Attendance %',
-                    data: data,
-                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                    borderColor: 'rgba(56, 189, 248, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                indexAxis: 'y', // Horizontal bar chart
-                responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Attendance %',
+                        data: data,
+                        backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 1
+                    }]
                 },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(255,255,255,0.1)' }
+                options: {
+                    indexAxis: 'y', // Horizontal bar chart
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
                     },
-                    y: {
-                        ticks: { color: '#f8fafc' },
-                        grid: { display: false }
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#f8fafc' },
+                            grid: { display: false }
+                        }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
 
-    // --- Event Listeners ---
-    searchInput.addEventListener('input', filterAndRender);
-    houseFilter.addEventListener('change', filterAndRender);
-    stateFilter.addEventListener('change', filterAndRender);
+        // --- Event Listeners ---
+        searchInput.addEventListener('input', filterAndRender);
+        houseFilter.addEventListener('change', filterAndRender);
+        stateFilter.addEventListener('change', filterAndRender);
 
-    // --- Initial Load ---
-    if (mpsData.length > 0) {
-        setupChart();
-    }
-});
+        // --- Initial Load ---
+        if (mpsData.length > 0) {
+            setupChart();
+        }
+    });
 </script>
 {% endblock %}
