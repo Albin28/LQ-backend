@@ -70,6 +70,12 @@
                                 leave blank to keep existing)</small></label>
                         <input type="file" id="billPdf" name="pdf" class="form-control-file" accept=".pdf,.docx">
                     </div>
+                    <div class="form-group">
+                        <label for="billPdfUrl">Or paste a PDF URL <small class="pdf-upload-hint">(Google Drive / any
+                                public link — used only if no file uploaded)</small></label>
+                        <input type="url" id="billPdfUrl" name="pdf_url_manual" class="form-control"
+                            placeholder="https://drive.google.com/file/d/…/view">
+                    </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save Bill</button>
                         <button type="button" class="btn btn-secondary" onclick="resetBillForm()">Cancel</button>
@@ -487,6 +493,7 @@
         document.getElementById('pdfPreviewGroup').classList.add('hidden');
         document.getElementById('noPdfGroup').classList.add('hidden');
         document.getElementById('removePdfFlag').value = '0';
+        document.getElementById('billPdfUrl').value = '';
         document.getElementById('billFormContainer').classList.add('hidden');
     }
 
@@ -587,6 +594,8 @@
             document.getElementById('billTitle').value = cleanVal(bill.title);
             document.getElementById('billStatus').value = cleanVal(bill.status) || 'Introduced';
             document.getElementById('billSummary').value = cleanVal(bill.summary);
+            // Pre-fill manual URL field with existing pdf_url so admin can see/edit it
+            document.getElementById('billPdfUrl').value = '';
 
             if (bill.pdf_url) {
                 const previewGroup = document.getElementById('pdfPreviewGroup');

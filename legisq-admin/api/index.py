@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 import json
 import firebase_admin
-from firebase_admin import credentials, firestore, storage
+from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
 try:
     import feedparser
@@ -12,6 +12,7 @@ import time
 from time import mktime
 from datetime import datetime
 import re
+import base64
 from urllib.parse import urlparse
 from firebase_admin import auth as firebase_auth
 from werkzeug.utils import secure_filename
@@ -39,29 +40,25 @@ FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 _KEY_PATH = os.path.join(_PARENT_DIR, "ServiceAccountKey.json")
 
 db = None
-bucket = None
+
 try:
     cred = credentials.Certificate(_KEY_PATH)
-    with open(_KEY_PATH) as f:
-        cert_json = json.load(f)
-    project_id = cert_json.get('project_id')
-    bucket_name = os.getenv('FIREBASE_STORAGE_BUCKET') or f"{project_id}.appspot.com"
-
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred, {'storageBucket': bucket_name})
-    
+        firebase_admin.initialize_app(cred)
     db = firestore.client()
-    bucket = storage.bucket()
-    # Test if bucket exists
-    try:
-        bucket.get_logging() # Simple check to see if we can access it
-        print(f"✅ Firebase (Admin) connected. Bucket: {bucket_name}")
-    except Exception:
-        print(f"⚠️ Warning: Firebase Storage bucket '{bucket_name}' not found. PDF uploads will fail, but the dashboard will work.")
-        bucket = None
+    print("✅ Firebase (Firestore) connected.")
 except Exception as e:
     print(f"❌ Firebase connection error: {e}")
-    bucket = None
+
+# --- GITHUB STORAGE CONFIG ---
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPO  = os.getenv("GITHUB_REPO")   # e.g. "Albin28/legisq-bills"
+GITHUB_BRANCH = os.getenv("GITHUB_BRANCH", "main")
+
+if GITHUB_TOKEN and GITHUB_REPO:
+    print(f"✅ GitHub storage configured: {GITHUB_REPO}")
+else:
+    print("⚠️  GitHub storage not configured — add GITHUB_TOKEN and GITHUB_REPO to .env")
 
 
 def require_admin(f):
@@ -88,6 +85,48 @@ def require_admin(f):
 ALLOWED_EXTENSIONS = {'.pdf', '.docx'}
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
+
+def _github_upload(file_bytes: bytes, bill_id: str, filename: str) -> str:
+    """
+    Upload a file to a public GitHub repo via the Contents API.
+    Returns a raw.githubusercontent.com URL that is always publicly accessible.
+    Requires GITHUB_TOKEN (personal access token) and GITHUB_REPO (e.g. 'user/repo').
+    """
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        raise ValueError(
+            "GitHub storage is not configured. "
+            "Add GITHUB_TOKEN and GITHUB_REPO to your .env file."
+        )
+
+    path    = f"bills/{bill_id}/{filename}"
+    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept":        "application/vnd.github.v3+json",
+    }
+
+    # If the file already exists, we need its SHA to update it
+    sha = None
+    existing = requests.get(api_url, headers=headers, timeout=15)
+    if existing.status_code == 200:
+        sha = existing.json().get("sha")
+
+    body = {
+        "message": f"Upload PDF for bill {bill_id}",
+        "content": base64.b64encode(file_bytes).decode(),
+        "branch":  GITHUB_BRANCH,
+    }
+    if sha:
+        body["sha"] = sha  # required when updating an existing file
+
+    resp = requests.put(api_url, json=body, headers=headers, timeout=60)
+
+    if not resp.ok:
+        raise ValueError(f"GitHub upload failed ({resp.status_code}): {resp.text[:300]}")
+
+    return f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{path}"
+
+
 def upload_pdf_to_storage(pdf_file, doc_id):
     if not pdf_file or not pdf_file.filename:
         return None
@@ -95,36 +134,17 @@ def upload_pdf_to_storage(pdf_file, doc_id):
     safe_name = secure_filename(pdf_file.filename)
     ext = os.path.splitext(safe_name)[1].lower()
 
-    # Server-side type validation
     if ext not in ALLOWED_EXTENSIONS:
         raise ValueError(f"Invalid file type '{ext}'. Only PDF and DOCX are allowed.")
 
-    # Server-side size validation (read into memory to check)
-    pdf_file.seek(0, 2)          # Seek to end
-    file_size = pdf_file.tell()  # Get position = size in bytes
-    pdf_file.seek(0)             # Rewind
+    pdf_file.seek(0, 2)
+    file_size = pdf_file.tell()
+    pdf_file.seek(0)
     if file_size > MAX_FILE_BYTES:
         raise ValueError(f"File too large ({file_size / 1024 / 1024:.1f} MB). Maximum is 10 MB.")
 
-    # If bucket exists, use it
-    if bucket:
-        try:
-            filename = f"bills/{doc_id}/{int(time.time())}_{safe_name}"
-            blob = bucket.blob(filename)
-            blob.upload_from_file(pdf_file, content_type='application/pdf')
-            blob.make_public()
-            return blob.public_url
-        except Exception as e:
-            print(f"⚠️ Cloud upload failed, falling back to local: {e}")
-
-    # No cloud bucket available — a local path would not persist on Vercel.
-    # Fail loudly so the user is aware the PDF was not saved, rather than saving
-    # a broken path that disappears on every server restart.
-    raise ValueError(
-        "Firebase Storage is not configured or not reachable. "
-        "Cannot upload the PDF. Please check that FIREBASE_STORAGE_BUCKET is set "
-        "and the bucket exists in your Firebase project."
-    )
+    file_bytes = pdf_file.read()
+    return _github_upload(file_bytes, doc_id, safe_name)
 
 def serialize_doc(doc):
     if not doc.exists:
@@ -196,8 +216,21 @@ def add_bill():
     
     try:
         pdf_file = request.files.get('pdf')
-        pdf_url = upload_pdf_to_storage(pdf_file, doc_ref.id)
-        
+        pdf_url = None
+        if pdf_file and pdf_file.filename:
+            try:
+                pdf_url = upload_pdf_to_storage(pdf_file, doc_ref.id)
+            except ValueError as ve:
+                # Upload failed; fall back to manual URL if given
+                manual_url = data.get('pdf_url_manual', '').strip()
+                if manual_url:
+                    pdf_url = manual_url
+                    print(f"⚠️ Upload failed, using manual URL: {manual_url}")
+                else:
+                    raise
+        elif data.get('pdf_url_manual', '').strip():
+            pdf_url = data.get('pdf_url_manual').strip()
+
         bill_data = {
             "title": data.get('title'),
             "status": data.get('status'),
@@ -234,7 +267,18 @@ def manage_bill(bill_id):
                 try:
                     update_data['pdf_url'] = upload_pdf_to_storage(pdf_file, bill_id)
                 except ValueError as ve:
-                    return jsonify({"error": str(ve)}), 400
+                    # Upload failed — fall back to manual URL if provided
+                    manual_url = data.get('pdf_url_manual', '').strip()
+                    if manual_url:
+                        update_data['pdf_url'] = manual_url
+                        print(f"⚠️ Upload failed, using manual URL for {bill_id}: {manual_url}")
+                    else:
+                        return jsonify({"error": str(ve)}), 400
+            else:
+                # No file uploaded — use manual URL if provided
+                manual_url = data.get('pdf_url_manual', '').strip()
+                if manual_url:
+                    update_data['pdf_url'] = manual_url
 
         doc_ref.update(update_data)
         return jsonify({"success": True})
@@ -275,27 +319,10 @@ def reset_database_api():
             for doc in docs:
                 doc.reference.delete()
         
-        # 2. Clear Storage (Optional - only if bucket exists)
-        if bucket:
-            try:
-                blobs = bucket.list_blobs(prefix='bills/')
-                for blob in blobs:
-                    blob.delete()
-            except Exception as se:
-                print(f"⚠️ Could not clear Cloud Storage: {se}")
+        # NOTE: PDFs are stored in GitHub — they are NOT deleted on reset.
+        # Firestore data is cleared above; re-run bulk_upload.py to repopulate.
 
-        # 3. Clear Local Dataset
-        local_dir = os.path.join(app.static_folder, 'dataset')
-        if os.path.exists(local_dir):
-            try:
-                import shutil
-                shutil.rmtree(local_dir)
-                os.makedirs(local_dir) # Recreate empty
-                print("✅ Local dataset cleared")
-            except Exception as le:
-                print(f"⚠️ Could not clear local dataset: {le}")
-        
-        return jsonify({"success": True, "message": "Database and Local Files cleared successfully"}), 200
+        return jsonify({"success": True, "message": "Database cleared successfully"}), 200
     except Exception as e:
         print(f"❌ Error resetting database: {e}")
         return jsonify({"error": str(e)}), 500
