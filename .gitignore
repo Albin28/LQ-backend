@@ -4,9 +4,9 @@ venv/
 __pycache__/
 *.pyc
 .vercel
-static/dataset/*.pdf
-static/dataset/*.xlsx
-static/dataset/*.xls
+**/static/dataset/*.pdf
+**/static/dataset/*.xlsx
+**/static/dataset/*.xls
 legisq-public/ServiceAccountKey.json
 legisq-public/.env
 legisq-admin/ServiceAccountKey.json

@@ -103,18 +103,29 @@ def bulk_upload():
                 bill_data['title'] = bill_data.get('title', bill_data.get('bill_title', 'Unknown Title'))
                 bill_data['status'] = bill_data.get('status', 'Introduced')
 
-                # Local PDF Linking
+                # Cloud Storage PDF Linking
                 pdf_filename = f"{bill_no}.pdf"
                 pdf_path = os.path.join(dataset_path, pdf_filename)
-                
+
+                # Always fetch the existing DB record to preserve existing pdf_url if no local PDF
+                existing_pdf_url = None
+                doc = db.collection('bills').document(bill_no).get()
+                if doc.exists:
+                    existing_pdf_url = doc.to_dict().get('pdf_url')
+
                 if os.path.exists(pdf_path):
-                    bill_data['pdf_url'] = f"/static/dataset/{pdf_filename}"
+                    try:
+                        blob = bucket.blob(f"bills/{bill_no}/{pdf_filename}")
+                        blob.upload_from_filename(pdf_path, content_type='application/pdf')
+                        blob.make_public()
+                        bill_data['pdf_url'] = blob.public_url
+                        print(f"    ☁️  PDF uploaded to Cloud Storage: {blob.public_url}")
+                    except Exception as pe:
+                        print(f"    ⚠️  Cloud upload failed for {pdf_filename}: {pe}")
+                        bill_data['pdf_url'] = existing_pdf_url
                 else:
-                    # Keep existing URL if it exists in DB, otherwise None
-                    doc = db.collection('bills').document(bill_no).get()
-                    if doc.exists:
-                        existing = doc.to_dict()
-                        bill_data['pdf_url'] = existing.get('pdf_url')
+                    # No local PDF found — keep whatever URL is already in the database
+                    bill_data['pdf_url'] = existing_pdf_url
 
                 db.collection('bills').document(bill_no).set(bill_data, merge=True)
                 print(f"  ✅ Processed: {bill_data.get('title')} (ID: {bill_no})")

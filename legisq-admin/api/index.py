@@ -117,12 +117,14 @@ def upload_pdf_to_storage(pdf_file, doc_id):
         except Exception as e:
             print(f"⚠️ Cloud upload failed, falling back to local: {e}")
 
-    # Local Fallback (Ideal for local admin usage)
-    local_dir = os.path.join(app.static_folder, 'dataset')
-    os.makedirs(local_dir, exist_ok=True)
-    local_path = os.path.join(local_dir, safe_name)
-    pdf_file.save(local_path)
-    return f"/static/dataset/{safe_name}"
+    # No cloud bucket available — a local path would not persist on Vercel.
+    # Fail loudly so the user is aware the PDF was not saved, rather than saving
+    # a broken path that disappears on every server restart.
+    raise ValueError(
+        "Firebase Storage is not configured or not reachable. "
+        "Cannot upload the PDF. Please check that FIREBASE_STORAGE_BUCKET is set "
+        "and the bucket exists in your Firebase project."
+    )
 
 def serialize_doc(doc):
     if not doc.exists:
