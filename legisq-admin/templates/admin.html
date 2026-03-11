@@ -674,12 +674,11 @@
                 body: JSON.stringify(data)
             });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to save MP');
-            }
+            const result = await response.json();
 
-            const savedMp = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to save MP');
+            }
 
             if (mpId) { // Update row
                 const row = document.querySelector(`#mpsTableBody tr[data-id="${mpId}"]`);
@@ -689,19 +688,18 @@
                     row.cells[2].innerHTML = `<span class="badge">${data.house}</span>`;
                 }
             } else { // Add new row
-                const res = await response.json();
                 // If there was an "empty table" message, remove it
                 const emptyCell = document.querySelector('#mpsTableBody .empty-table-cell');
                 if (emptyCell) emptyCell.parentElement.remove();
 
                 const newRow = `
-                <tr data-id="${res.id}">
+                <tr data-id="${result.id}">
                     <td>${data.name}</td>
                     <td>${data.state}</td>
                     <td><span class="badge">${data.house}</span></td>
                     <td class="action-buttons">
-                        <button class="btn-icon" onclick="editMp('${res.id}')">✏️</button>
-                        <button class="btn-icon" onclick="deleteMp('${res.id}')">🗑️</button>
+                        <button class="btn-icon" onclick="editMp('${result.id}')">✏️</button>
+                        <button class="btn-icon" onclick="deleteMp('${result.id}')">🗑️</button>
                     </td>
                 </tr>`;
                 document.getElementById('mpsTableBody').insertAdjacentHTML('afterbegin', newRow);
