@@ -17,7 +17,7 @@ import re
 load_dotenv()
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "1230984576-poda-patti-nayyinte-mone")
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "1230984756-project-LQ")
 
 # --- FIREBASE SETUP ---
 db = None
