@@ -328,4 +328,7 @@ def reset_database_api():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8001)
+    host = os.getenv("FLASK_HOST", "0.0.0.0")
+    port = int(os.getenv("FLASK_PORT", "8001"))
+    debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"
+    app.run(host=host, port=port, debug=debug)
