@@ -328,7 +328,11 @@ def reset_database_api():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    host = os.getenv("FLASK_HOST", "0.0.0.0")
+    host = os.getenv("FLASK_HOST", "127.0.0.1")
+    allow_wildcard_host = os.getenv("FLASK_ALLOW_WILDCARD_HOST", "false").lower() == "true"
+    if os.name == 'nt' and host == '0.0.0.0' and not allow_wildcard_host:
+        # Avoid slow reverse DNS lookup on Windows when binding wildcard host.
+        host = '127.0.0.1'
     port = int(os.getenv("FLASK_PORT", "8001"))
     debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     app.run(host=host, port=port, debug=debug)

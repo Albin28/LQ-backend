@@ -241,5 +241,10 @@ def handle_exception(e):
 
 # This is the entry point for Vercel
 if __name__ == '__main__':
+    host = os.getenv('FLASK_HOST', '127.0.0.1')
+    allow_wildcard_host = os.getenv('FLASK_ALLOW_WILDCARD_HOST', 'false').lower() == 'true'
+    if os.name == 'nt' and host == '0.0.0.0' and not allow_wildcard_host:
+        # Avoid slow reverse DNS lookup on Windows when binding wildcard host.
+        host = '127.0.0.1'
     port = int(os.getenv('PORT', 8000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=True, host=host, port=port)

@@ -14,7 +14,7 @@
 
     {% if news %}
     <!-- News Grid -->
-    <section class="data-grid" style="--grid-cols: repeat(auto-fill, minmax(350px, 1fr));">
+    <section class="data-grid news-grid">
         {% for item in news %}
         <a href="{{ item.link }}" target="_blank" rel="noopener noreferrer" class="glass-panel news-card-link">
             <div class="news-card">
@@ -36,7 +36,7 @@
         {% endfor %}
     </section>
     {% else %}
-    <div class="glass-panel text-center" style="padding: 4rem;">
+    <div class="glass-panel text-center loading-panel">
         <h2>Connecting to News Feeds...</h2>
         <p class="text-muted">Fetching the latest updates. Please wait a moment.</p>
     </div>
@@ -110,6 +110,12 @@
     font-size: 0.75rem;
     color: white;
     font-weight: 500;
+}
+.news-grid {
+    --grid-cols: repeat(auto-fill, minmax(350px, 1fr));
+}
+.loading-panel {
+    padding: 4rem;
 }
 </style>
 
